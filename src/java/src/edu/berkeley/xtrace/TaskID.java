@@ -38,7 +38,7 @@ import org.apache.log4j.Logger;
  * 
  * @author George Porter
  */
-public class TaskID {
+public final class TaskID {
 	private static final Logger LOG = Logger.getLogger(TaskID.class);
 	private static Random r = null;
 	
@@ -102,6 +102,16 @@ public class TaskID {
 		
 		System.arraycopy(prefix, 0, id, 0, prefix.length);
 		System.arraycopy(randomBytes, 0, id, prefix.length, length - prefix.length);
+	}
+
+	/**
+	 * Copy constructor
+	 * 
+	 * @param taskid
+	 */
+	public TaskID(TaskID taskid) {
+		this.id = new byte[taskid.id.length];
+		System.arraycopy(taskid.id, 0, this.id, 0, taskid.id.length);
 	}
 
 	/**
@@ -224,12 +234,6 @@ public class TaskID {
 		}
 
 		return s;
-	}
-
-	
-	@Override
-	protected Object clone() throws CloneNotSupportedException {
-		return createFromBytes(id, 0, id.length);
 	}
 
 	/* (non-Javadoc)

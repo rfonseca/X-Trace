@@ -129,6 +129,27 @@ public final class Metadata {
 	}
 	
 	/**
+	 * Copy constructor
+	 * 
+	 * @param xtr
+	 */
+	public Metadata(Metadata xtr) {
+		// TaskID
+		this.taskid = new TaskID(xtr.taskid);
+		
+		// OpId
+		this.opId = new byte[xtr.opId.length];
+		System.arraycopy(xtr.opId, 0, this.opId, 0, xtr.opId.length);
+		
+		// Options
+		this.numOptions = xtr.numOptions;
+		this.options = new Option[xtr.numOptions];
+		for (int i = 0; i < xtr.numOptions; i++) {
+			this.options[i] = xtr.options[i];
+		}
+	}
+
+	/**
 	 * Creates an X-Trace metadata object from an array of bytes
 	 * 
 	 * @param bytes

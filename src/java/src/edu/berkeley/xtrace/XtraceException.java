@@ -32,12 +32,14 @@ package edu.berkeley.xtrace;
  * @author gporter
  *
  */
-public final class XtraceException extends Exception {
+@SuppressWarnings("serial")
+public class XtraceException extends Exception {
 
 	/**
 	 * 
 	 */
 	public XtraceException() {
+		super();
 	}
 
 	/**

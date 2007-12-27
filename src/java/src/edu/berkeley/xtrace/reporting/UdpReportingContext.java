@@ -52,7 +52,7 @@ import org.apache.log4j.Logger;
  *
  * @author George Porter
  */
-class UdpReportingContext extends ReportingContext
+public final class UdpReportingContext extends ReportingContext
 {
 	private static final Logger LOG = Logger.getLogger(UdpReportingContext.class);
 

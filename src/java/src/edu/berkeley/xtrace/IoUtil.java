@@ -37,7 +37,7 @@ import org.apache.log4j.Logger;
  *
  * @author George Porter
  */
-public class IoUtil
+public final class IoUtil
 {
    private static final Logger LOG = Logger.getLogger(IoUtil.class);
    private static final char[] hex = "0123456789ABCDEF".toCharArray();

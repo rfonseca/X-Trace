@@ -54,7 +54,7 @@ public abstract class ReportingContext
 	 * 
 	 * @return a handle to a report context (creating one if necessary)
 	 */
-	public static synchronized ReportingContext getReportCtx() {
+	public final static synchronized ReportingContext getReportCtx() {
 		if (rptCtx == null) {
 			String systemprop = System.getProperty("xtrace.reportctx");
 

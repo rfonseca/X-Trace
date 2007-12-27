@@ -25,42 +25,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package edu.berkeley.xtrace;
 
-import static org.junit.Assert.*;
+package edu.berkeley.xtrace.reporting.Backend;
 
-import org.junit.Before;
-import org.junit.Test;
+import java.util.concurrent.BlockingQueue;
 
-public class IoUtilTest {
+import edu.berkeley.xtrace.XtraceException;
 
-	@Before
-	public void setUp() throws Exception {
-	}
-
-	@Test
-	public void testBytesToStringByteArray() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testBytesToStringByteArrayIntInt() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testStringToBytes() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testValidateHexString() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testIntToString() {
-		//fail("Not yet implemented"); // TODO
-	}
-
+public interface ReportSource extends Runnable {
+	
+	public void setReportQueue(BlockingQueue<String> q);
+	
+	public void initialize() throws XtraceException;
+	public void shutdown();
 }

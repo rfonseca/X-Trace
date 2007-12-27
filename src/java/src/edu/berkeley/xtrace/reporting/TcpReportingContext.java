@@ -44,7 +44,7 @@ import org.apache.log4j.Logger;
  *
  * @author Matei Zaharia
  */
-public class TcpReportingContext extends ReportingContext
+public final class TcpReportingContext extends ReportingContext
 {
 	private static final Logger LOG = Logger.getLogger(TcpReportingContext.class);
 	

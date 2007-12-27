@@ -52,7 +52,7 @@ import org.apache.log4j.Logger;
  * @author George Porter <gporter@cs.berkeley.edu>
  *
  */
-public class CmdLineReporter {
+public final class CmdLineReporter {
 	private static final Logger LOG = Logger.getLogger(CmdLineReporter.class);
 
 	public static void main(String[] args) {

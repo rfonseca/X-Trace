@@ -25,57 +25,22 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package edu.berkeley.xtrace;
 
-import static org.junit.Assert.*;
+package edu.berkeley.xtrace.reporting.Backend;
 
-import org.junit.Before;
-import org.junit.Test;
+import java.util.Iterator;
+import java.util.concurrent.BlockingQueue;
 
-public class OptionTest {
+import edu.berkeley.xtrace.XtraceException;
 
-	@Before
-	public void setUp() throws Exception {
-	}
-
-	@Test
-	public void testHashCode() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testOption() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testCreateFromBytes() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testCreateFromString() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testGetType() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testGetPayload() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testPack() {
-		//fail("Not yet implemented"); // TODO
-	}
-
-	@Test
-	public void testEqualsObject() {
-		//fail("Not yet implemented"); // TODO
-	}
-
+public interface ReportStore extends Runnable {
+	
+	public void setReportQueue(BlockingQueue<String> q);
+	
+	public void initialize() throws XtraceException;
+	public void shutdown();
+	
+	public Iterator<String> getByTask(String task) throws XtraceException;
+	
+	public Iterator<String> getTasksSince(Long startTime) throws XtraceException;
 }

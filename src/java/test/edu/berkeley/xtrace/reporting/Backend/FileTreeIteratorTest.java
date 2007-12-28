@@ -65,6 +65,41 @@ public class FileTreeIteratorTest {
 		assertFalse(iter.hasNext());
 	}
 	
+	@Test
+	public void testConcurrentFileTreeIterator() {
+		
+		// Read the first half from one iterator...
+		FileTreeReportStore.FileTreeIterator iter =
+			new FileTreeReportStore.FileTreeIterator(reportFile);
+		
+		int midpoint = Math.round(reports.length / 2);
+		
+		for (int i = 0; i < midpoint; i++) {
+			assertTrue(iter.hasNext());
+			assertEquals(reports[i].toString(), iter.next());
+		}
+		
+		// ... then open another iterator and read a half too
+		FileTreeReportStore.FileTreeIterator iter2 =
+			new FileTreeReportStore.FileTreeIterator(reportFile);
+		
+		for (int i = 0; i < midpoint; i++) {
+			assertTrue(iter2.hasNext());
+			assertEquals(reports[i].toString(), iter2.next());
+		}
+		
+		// Finally, interleave the reading from both files
+		for (int i = midpoint; i < reports.length; i++) {
+			assertTrue(iter.hasNext());
+			assertTrue(iter2.hasNext());
+			assertEquals(reports[i].toString(), iter.next());
+			assertEquals(reports[i].toString(), iter2.next());
+		}
+		
+		assertFalse(iter.hasNext());
+		assertFalse(iter2.hasNext());
+	}
+	
 	private Report randomReport() {
 		Report report = new Report();
 		

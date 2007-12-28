@@ -21,10 +21,7 @@ public class UdpReportSource implements ReportSource {
 
 	public void initialize() throws XtraceException {
 		
-		String udpSource = System.getProperty("xtrace.udpsource");
-		if (udpSource == null) {
-			udpSource = "127.0.0.1:7831";
-		}
+		String udpSource = System.getProperty("xtrace.udpsource", "127.0.0.1:7831");
 		
 		InetAddress localAddr;
 		try {
@@ -64,7 +61,7 @@ public class UdpReportSource implements ReportSource {
 				LOG.warn("Unable to receive report", e);
 			}
 			
-			LOG.debug("Received Report");
+			//LOG.debug("Received Report");
 			
 		    try {
 				q.offer(new String(p.getData(), 0, p.getLength(), "UTF-8"));

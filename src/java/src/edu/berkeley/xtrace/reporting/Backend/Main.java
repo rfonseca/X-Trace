@@ -28,14 +28,29 @@
 
 package edu.berkeley.xtrace.reporting.Backend;
 
+import java.io.IOException;
+import java.io.Writer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+import org.mortbay.jetty.HttpConnection;
+import org.mortbay.jetty.Request;
+import org.mortbay.jetty.Response;
+import org.mortbay.jetty.Server;
+import org.mortbay.jetty.handler.AbstractHandler;
 
 import edu.berkeley.xtrace.XtraceException;
 
@@ -53,6 +68,11 @@ public final class Main {
 	private static ThreadPerTaskExecutor sourcesExecutor;
 
 	private static ExecutorService storeExecutor;
+
+	private static ReportStore reportstore;
+	
+	private static final DateFormat DATE_FORMAT =
+		new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
 	
 	public static void main(String[] args) {
 		BasicConfigurator.configure();
@@ -60,25 +80,7 @@ public final class Main {
 		setupReportSources();
 		setupReportStore();
 		setupBackplane();
-	}
-
-	private static void setupBackplane() {
-		new Thread(new Runnable() {
-			public void run() {
-				LOG.info("Backplane waiting for packets");
-				
-				while (true) {
-					String msg = null;
-					try {
-						msg = incomingReportQueue.take();
-					} catch (InterruptedException e) {
-						LOG.warn("Interrupted", e);
-						continue;
-					}
-					reportsToStorageQueue.offer(msg);
-				}
-			}
-		}).start();
+		setupWebInterface();
 	}
 
 	private static void setupReportSources() {
@@ -133,9 +135,9 @@ public final class Main {
 			LOG.warn("No backend report store specified... using default (NullReportStore)");
 		}
 		
-		ReportStore store = null;
+		reportstore = null;
 		try {
-			store = (ReportStore) Class.forName(storeStr).newInstance();
+			reportstore = (ReportStore) Class.forName(storeStr).newInstance();
 		} catch (InstantiationException e1) {
 			LOG.fatal("Could not instantiate report store", e1);
 			System.exit(-1);
@@ -147,16 +149,35 @@ public final class Main {
 			System.exit(-1);
 		}
 		
-		store.setReportQueue(reportsToStorageQueue);
+		reportstore.setReportQueue(reportsToStorageQueue);
 		try {
-			store.initialize();
+			reportstore.initialize();
 		} catch (XtraceException e) {
 			LOG.fatal("Unable to start report store", e);
 			System.exit(-1);
 		}
 		
 		storeExecutor = Executors.newSingleThreadExecutor();
-		storeExecutor.execute(store);
+		storeExecutor.execute(reportstore);
+	}
+	
+	private static void setupBackplane() {
+		new Thread(new Runnable() {
+			public void run() {
+				LOG.info("Backplane waiting for packets");
+				
+				while (true) {
+					String msg = null;
+					try {
+						msg = incomingReportQueue.take();
+					} catch (InterruptedException e) {
+						LOG.warn("Interrupted", e);
+						continue;
+					}
+					reportsToStorageQueue.offer(msg);
+				}
+			}
+		}).start();
 	}
 	
 	private static class ThreadPerTaskExecutor implements Executor {
@@ -164,4 +185,133 @@ public final class Main {
 	         new Thread(r).start();
 	     }
 	 }
+	
+	private static void setupWebInterface() {
+		int httpPort =
+			Integer.parseInt(System.getProperty("xtrace.backend.httpport", "8080"));
+		
+		Server server = new Server(httpPort);
+		server.setHandler(new HttpHandler());
+		try {
+			server.start();
+		} catch (Exception e) {
+			LOG.warn("Unable to start web interface", e);
+		}
+	}
+	
+	private static class HttpHandler extends AbstractHandler {
+		
+		public void handle(String target, HttpServletRequest httpreq,
+				HttpServletResponse httpresp, int dispatch) throws IOException,
+				ServletException {
+			Request request = (httpreq instanceof Request) ? 
+					(Request)httpreq : HttpConnection.getCurrentConnection().getRequest();
+			Response response = (httpresp instanceof Response) ?
+					(Response)httpresp : HttpConnection.getCurrentConnection().getResponse();
+			try {
+				if (target.equals("/getReports")) {
+					handleGetReports(request, response);
+				} else if (target.equals("/latestTasks")) {
+					handleLatestTasks(request, response, false);
+				}  else if (target.equals("/")) {
+					handleLatestTasks(request, response, true);
+				} else {
+					response.sendError(HttpServletResponse.SC_NOT_FOUND);
+				}
+			} finally {
+				request.setHandled(true);
+			}
+		}
+
+		private void handleGetReports(Request request, Response response)
+		throws IOException {
+			response.setContentType("text/plain");
+			response.setStatus(HttpServletResponse.SC_OK);
+			Writer out = response.getWriter();
+			String taskId = request.getParameter("taskid");
+			if (taskId != null) {
+				Iterator<String> iter;
+				try {
+					iter = reportstore.getByTask(taskId);
+				} catch (XtraceException e) {
+					LOG.warn("Error in /getReports", e);
+					out.write(e.toString());
+					return;
+				} 
+				while (iter.hasNext()) {
+					out.write(iter.next());
+					out.write("\n");
+				}
+			}
+		}
+
+		private void handleLatestTasks(Request request, Response response, 
+				boolean outputHtml)
+		throws IOException {
+			if (outputHtml)
+				response.setContentType("text/html");
+			else
+				response.setContentType("text/plain");
+			response.setStatus(HttpServletResponse.SC_OK);
+			Writer out = response.getWriter();
+			long windowHours;
+			try {
+				windowHours = Long.parseLong(request.getParameter("window"));
+				if (windowHours < 0) throw new IllegalArgumentException();
+			} catch(Exception ex) {
+				windowHours = 24;
+			}
+			long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
+			Iterator<String> iter;
+			try {
+				iter = reportstore.getTasksSince(startTime);
+			} catch (XtraceException e) {
+				LOG.warn("Internal error", e);
+				out.write("Internal error: " + e.toString());
+				return;
+			}
+			if (outputHtml) {
+				out.write("<html><head><title>Latest Tasks</title></head>\n"
+						+ "<body><h1>X-Trace Latest Tasks</h1>\n"
+						+ "<table border=1 cellspacing=0 cellpadding=3>\n"
+						+ "<tr><th>Date</th><th>TaskID</th><th># Reports</th></tr>\n");
+			} else {
+				out.write("[\n");
+			}
+			// Remember last taskID in case the table contains a duplicate (not sure this can happen)
+			boolean first = true;
+			while (iter.hasNext()) {
+				String taskId = iter.next();
+
+				long time = reportstore.lastUpdatedByTaskId(taskId);
+				Date date = new Date(time);
+
+				int count = reportstore.countByTaskId(taskId);
+
+				if (outputHtml) {
+					out.write("<tr><td>" + date.toString() + "</td><td>"
+							+ "<a href=\"getReports?taskid=" + taskId
+							+ "\">" + taskId + "</a></td><td>" + count
+							+ "</td></tr>\n");
+				} else {
+					if (!first)
+					out.write(",\n");
+					out.write("{ \"taskid\":\"" + taskId
+							+ "\", \"date-time\":\"" + DATE_FORMAT.format(date)
+							+ "\", \"reportcount\":\"" + count + "\" }");
+				}
+				first = false;
+			}
+			if (outputHtml) {
+				out.write("</table>\n");
+				int numTasks = reportstore.numUniqueTasks();
+				int numReports = reportstore.numReports();
+				out.write("<p>Database size: " + numTasks + " tasks, " 
+						+ numReports + " reports.  Data valid as of: " + reportstore.dataAsOf() + "</p>\n");
+				out.write("</body></html>\n");
+			} else {
+				out.write("\n]\n");
+			}
+		}
+	}
 }

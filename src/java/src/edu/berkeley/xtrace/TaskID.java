@@ -28,6 +28,7 @@
 package edu.berkeley.xtrace;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Random;
 
@@ -38,9 +39,9 @@ import org.apache.log4j.Logger;
  * 
  * @author George Porter
  */
-public final class TaskID {
-	private static final Logger LOG = Logger.getLogger(TaskID.class);
-	private static Random r = null;
+public final class TaskID implements Serializable {
+	private static volatile Logger LOG = Logger.getLogger(TaskID.class);
+	private static volatile Random r = null;
 	
 	private byte[] id;
 	

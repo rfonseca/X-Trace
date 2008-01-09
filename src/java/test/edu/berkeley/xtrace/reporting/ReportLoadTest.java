@@ -31,8 +31,8 @@ import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 
-import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+import org.junit.Test;
 
 import edu.berkeley.xtrace.Metadata;
 import edu.berkeley.xtrace.TaskID;
@@ -48,7 +48,6 @@ public final class ReportLoadTest {
 	private static Worker[] workers;
 
 	public static void main(String[] args) {
-		BasicConfigurator.configure();
 		
 		out("X-Trace report infrastructure load test");
 		
@@ -166,5 +165,9 @@ public final class ReportLoadTest {
 
 			return new String(ar);
 		}
+	}
+	
+	@Test
+	public void nullTest() {
 	}
 }

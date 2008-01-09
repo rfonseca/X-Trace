@@ -10,6 +10,7 @@ import java.util.Random;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+import org.apache.log4j.varia.NullAppender;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -26,7 +27,9 @@ public class FileTreeIteratorTest {
 
 	@Before
 	public void setUp() throws Exception {
-		BasicConfigurator.configure();
+		
+		BasicConfigurator.configure(new NullAppender());
+		
 		r = new Random();
 		
 		reports = new Report[NUM_STOCHASTIC];

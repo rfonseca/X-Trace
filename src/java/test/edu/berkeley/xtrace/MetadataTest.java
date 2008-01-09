@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.Random;
 
 import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.varia.NullAppender;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -70,7 +71,7 @@ public class MetadataTest {
 	@Before
 	public void setUp() throws Exception {
 		
-		BasicConfigurator.configure();
+		BasicConfigurator.configure(new NullAppender());
 		
 		rnd = new Random();
 		
@@ -666,6 +667,21 @@ public class MetadataTest {
 		for (int i = 0; i < invalidStrings.length; i++) {
 			Metadata md = Metadata.createFromString(invalidStrings[i]);
 			assertEquals((new Metadata()).toString(), md.toString());
+		}
+	}
+	
+	@Test
+	public void testLegacyMetadata() {
+		// Let's see if the new Metadata class handles older metadata ok
+		String[] old = new String[3];
+		old[0] = "0000010203AABBCCDD";
+		old[1] = "010001020304050607AABBCCDD";
+		old[2] = "0000010203AABBCCDD0704070001020304";
+		
+		for (int i = 0; i < old.length; i++) {
+			Metadata m = Metadata.createFromString(old[i]);
+			assertNotNull(m);
+			assertTrue(m.isValid());
 		}
 	}
 }

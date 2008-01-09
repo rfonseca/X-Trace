@@ -31,22 +31,22 @@ package edu.berkeley.xtrace.reporting.Backend;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,55 +57,157 @@ import edu.berkeley.xtrace.Metadata;
 import edu.berkeley.xtrace.TaskID;
 import edu.berkeley.xtrace.XtraceException;
 
-public class FileTreeReportStore implements ReportStore {
+public final class FileTreeReportStore implements QueryableReportStore {
 	private static final Logger LOG = Logger.getLogger(FileTreeReportStore.class);
 	
 	private String dataDirName;
+	private File dataRootDir;
 	private BlockingQueue<String> incomingReports;
 	private LRUFileHandleCache fileCache;
-	private Map<TaskID, TaskStatistics> recentTasks;
-
-	private Timer saverTimer;
+	private Connection conn;
+	private PreparedStatement querytestps, insertps, updateps, updatedSincePs;
+	private PreparedStatement numByTask, totalNumReports, totalNumTasks;
 	
 	private static final Pattern XTRACE_LINE = 
 		Pattern.compile("^X-Trace:\\s+([0-9A-Fa-f]+)$", Pattern.MULTILINE);
-
-	public void setReportQueue(BlockingQueue<String> q) {
+	
+	public synchronized void setReportQueue(BlockingQueue<String> q) {
 		this.incomingReports = q;
 	}
 	
 	@SuppressWarnings("serial")
-	public void initialize() throws XtraceException {
+	public synchronized void initialize() throws XtraceException {
 		// Directory to store reports into
 		dataDirName = System.getProperty("xtrace.backend.storedirectory");
 		if (dataDirName == null) {
 			throw new XtraceException("FileTreeReportStore selected, but no xtrace.backend.storedirectory specified");
 		}
+		dataRootDir = new File(dataDirName);
 		
-		// 25-element LRU file handle cache
-		fileCache = new LRUFileHandleCache(25, dataDirName);
-		
-		// In-memory data structure of recently added tasks (1000 elements long)
-		// We try to read one off the disk, but if that doesn't exist, we
-		// create a new one.
-		if (!readInRecentTasks()) {
-			recentTasks = new LinkedHashMap<TaskID, TaskStatistics>(1000, .75F, true) {
-				protected boolean removeEldestEntry(java.util.Map.Entry<TaskID, TaskStatistics> eldest) {
-					return size() > 1000;
-				}
-			};
+		if (!dataRootDir.isDirectory()) {
+			throw new XtraceException("Data Store location isn't a directory: " + dataDirName);
+		}
+		if (!dataRootDir.canWrite()) {
+			throw new XtraceException("Can't write to data store directory");
 		}
 		
-		// Autosave every 10 seconds
-		AutoSaver saver = new AutoSaver();
-		saverTimer = new Timer("autosaver");
-		saverTimer.schedule(saver, 10000, 10000);
+		// 25-element LRU file handle cache.  The report data is stored here
+		fileCache = new LRUFileHandleCache(25, dataRootDir);
+		
+		// the embedded database keeps metadata about the reports
+		initializeDatabase();
 	}
 	
-	public void shutdown() {
-		fileCache.closeAll();
+	private void initializeDatabase() throws XtraceException {
+		// This embedded SQL database contains metadata about the reports
+		System.setProperty("derby.system.home", dataDirName);
+		try {
+			Class.forName("org.apache.derby.jdbc.EmbeddedDriver").newInstance();
+		} catch (InstantiationException e) {
+			throw new XtraceException("Unable to instantiate internal database", e);
+		} catch (IllegalAccessException e) {
+			throw new XtraceException("Unable to access internal database class", e);
+		} catch (ClassNotFoundException e) {
+			throw new XtraceException("Unable to locate internal database class", e);
+		}
+		try {
+			conn = DriverManager.getConnection("jdbc:derby:tasks;create=true");
+			conn.setAutoCommit(false);
+		} catch (SQLException e) {
+			throw new XtraceException("Unable to connect to interal database: " + e.getSQLState(), e);
+		}
+		LOG.info("Successfully connected to the internal Derby database");
+		
+		// Create the table(s) if necessary.
+		try {
+			Statement s = conn.createStatement();
+			s.executeUpdate("create table tasks(taskid varchar(40) not null primary key, " +
+					"firstSeen timestamp default current_timestamp not null, " +
+					"lastUpdated timestamp default current_timestamp not null, " +
+					"numreports integer default 1 not null)");
+			// GEO TODO: create indices
+			s.close();
+			conn.commit();
+		} catch (SQLException e) { LOG.warn("warning: ", e); }
+		
+		try {
+			querytestps = conn.prepareStatement("select count(taskid) as rowcount from tasks where taskid = ?");
+			insertps = conn.prepareStatement("insert into tasks (taskid) values (?)");
+			updateps = conn.prepareStatement("update tasks set lastUpdated = current_timestamp, " +
+					"numreports = numreports + 1 where taskid = ?");
+			updatedSincePs = conn.prepareStatement("select taskid from tasks where firstseen >= ?");
+			numByTask = conn.prepareStatement("select numreports from tasks where taskid = ?");
+			totalNumReports = conn.prepareStatement("select sum(numreports) as totalreports from tasks");
+			totalNumTasks = conn.prepareStatement("select count(distinct taskid) as numtasks from tasks");
+		} catch (SQLException e) {
+			throw new XtraceException("Unable to setup prepared statement", e);
+		}
 	}
 
+	public void sync() {
+		fileCache.flushAll();
+	}
+	
+	public synchronized void shutdown() {
+		LOG.info("Shutting down the FileTreeReportStore");
+		fileCache.closeAll();
+		try {
+			DriverManager.getConnection("jdbc:derby:tasks;shutdown=true");
+		} catch (SQLException e) {
+			if (!e.getSQLState().equals("08006")) {
+				LOG.warn("Unable to shutdown embedded database", e);
+			}
+		}
+	}
+
+	void receiveReport(String msg) {
+		Matcher matcher = XTRACE_LINE.matcher(msg);
+		if (matcher.find()) {
+			
+			String xtraceLine = matcher.group(1);
+			Metadata meta = Metadata.createFromString(xtraceLine);
+			
+			if (meta.getTaskId() != null) {
+				TaskID task = meta.getTaskId();
+				String taskstr = task.toString();
+				BufferedWriter fout = fileCache.getHandle(taskstr);
+				if (fout == null) {
+					LOG.warn("Discarding a report due to internal fileCache error: " + msg);
+					return;
+				}
+				try {
+					fout.write(msg);
+					fout.newLine();
+					fout.newLine();
+					LOG.debug("Wrote " + msg.length() + " bytes to the stream");
+				} catch (IOException e) {
+					LOG.warn("I/O error while writing the report", e);
+				}
+				
+				// Update index
+				try {
+					// Find out whether to do an insert or an update
+					querytestps.setString(1, taskstr.toUpperCase());
+					ResultSet rs = querytestps.executeQuery();
+					rs.next();
+					if (rs.getInt("rowcount") == 0) {
+						insertps.setString(1, taskstr.toUpperCase());
+						insertps.executeUpdate();
+					} else {
+						updateps.setString(1, taskstr.toUpperCase());
+						updateps.executeUpdate();
+					}
+					conn.commit();
+					
+				} catch (SQLException e) {
+					LOG.warn("Unable to update metadata about task " + task.toString(), e);
+				}
+			} else {
+				LOG.debug("Ignoring a report without an X-Trace taskID: " + msg);
+			}
+		}
+	}
+	
 	public void run() {
 		LOG.info("FileTreeReportStore running with datadir " + dataDirName);
 		
@@ -116,96 +218,74 @@ public class FileTreeReportStore implements ReportStore {
 			} catch (InterruptedException e1) {
 				continue;
 			}
-			
-			Matcher matcher = XTRACE_LINE.matcher(msg);
-			if (matcher.find()) {
-				
-				String xtraceLine = matcher.group(1);
-				Metadata meta = Metadata.createFromString(xtraceLine);
-				if (meta.getTaskId() != null) {
-					TaskID task = meta.getTaskId();
-					BufferedWriter fout = fileCache.getHandle(task.toString());
-					if (fout == null) {
-						continue;
-					}
-					try {
-						fout.write(msg);
-						fout.newLine();
-						fout.newLine();
-					} catch (IOException e) {
-						LOG.warn("I/O error while writing the report", e);
-					}
-					
-					// Update index
-					if (!recentTasks.containsKey(task)) {
-						recentTasks.put(task, new TaskStatistics());
-					}
-					TaskStatistics stats = recentTasks.get(task);
-					stats.lastUpdated = System.currentTimeMillis();
-					stats.numReports += 1;
-					recentTasks.put(task, stats);
-				}
-			}
+			receiveReport(msg);
 		}
 	}
 
-	public Iterator<String> getByTask(String task) throws XtraceException {
+	public Iterator<String> getReportsByTask(String task) {
 		return new FileTreeIterator(taskIdtoFile(task));
 	}
 	
-	public Iterator<String> getTasksSince(Long startTime)
-			throws XtraceException {
+	public Iterator<String> getTasksSince(Long milliSecondsSince1970) {
+		ArrayList<String> lst = new ArrayList<String>();
 		
-		ArrayList<String> tasklst = new ArrayList<String>();
-		
-		Iterator<Map.Entry<TaskID, TaskStatistics>> iter = recentTasks.entrySet().iterator();
-		
-		while (iter.hasNext()) {
-			Map.Entry<TaskID, TaskStatistics> entry = iter.next();
-			TaskID task = entry.getKey();
-			TaskStatistics stats = entry.getValue();
-			
-			if (stats.lastUpdated >= startTime) {
-				tasklst.add(task.toString());
+		try {
+			updatedSincePs.setString(1, (new Timestamp(milliSecondsSince1970)).toString());
+			ResultSet rs = updatedSincePs.executeQuery();
+			while (rs.next()) {
+				lst.add(rs.getString("taskid"));
 			}
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
 		}
-		return tasklst.iterator();
+		
+		return lst.iterator();
 	}
 	
 	public int countByTaskId(String taskId) {
-		File taskFile = taskIdtoFile(taskId);
-		
-		int count = 0;
-		
-		Iterator<String> iter = new FileTreeIterator(taskFile);
-		while (iter.hasNext()) {
-			iter.next();
-			count++;
+		try {
+			numByTask.setString(1, taskId.toUpperCase());
+			ResultSet rs = numByTask.executeQuery();
+			if (rs.next()) {
+				return rs.getInt("numreports");
+			}
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
 		}
-		
-		return count;
+		return 0;
 	}
 
 	public long lastUpdatedByTaskId(String taskId) {
-		if (recentTasks.containsKey(taskId)) {
-			TaskStatistics stats = recentTasks.get(taskId);
-			return stats.lastUpdated;
-		} else {
-			File taskFile = taskIdtoFile(taskId);
-			if (!taskFile.exists() || !taskFile.canRead())
-				return 0;
-			return taskFile.lastModified();
-		}
+		// GEOTODO
+		return 0;
 	}
 
 	public int numReports() {
-		// TODO Auto-generated method stub
-		return 0;
+		int total = 0;
+		
+		try {
+			ResultSet rs = totalNumReports.executeQuery();
+			rs.next();
+			total = rs.getInt("totalreports");
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		
+		return total;
 	}
 
 	public int numUniqueTasks() {
-		// TODO Auto-generated method stub
-		return 0;
+		int total = 0;
+		
+		try {
+			ResultSet rs = totalNumTasks.executeQuery();
+			rs.next();
+			total = rs.getInt("numtasks");
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		
+		return total;
 	}
 	
 	private File taskIdtoFile(String taskId) {
@@ -220,91 +300,9 @@ public class FileTreeReportStore implements ReportStore {
 		return fileCache.lastSynched();
 	}
 	
-	@SuppressWarnings("unchecked")
-	private boolean readInRecentTasks() {
-		recentTasks = new LinkedHashMap<TaskID, TaskStatistics>(1000, .75F, true) {
-			protected boolean removeEldestEntry(java.util.Map.Entry<TaskID, TaskStatistics> eldest) {
-				return size() > 1000;
-			}
-		};
-		
-		File recentTaskFile = new File(dataDirName, "recentTasks.dat");
-		if (recentTaskFile.exists() && recentTaskFile.canRead()) {
-			try {
-				ObjectInputStream in =
-					new ObjectInputStream(new FileInputStream(recentTaskFile));
-				
-				int numEntries = in.readInt();
-				
-				for (int i = 0; i < numEntries; i++) {
-					int taskLength = in.readInt();
-					byte[] taskBytes = new byte[taskLength];
-					in.readFully(taskBytes);
-					TaskID task = TaskID.createFromBytes(taskBytes, 0, taskBytes.length);
-					
-					TaskStatistics stats = new TaskStatistics();
-					stats.lastUpdated = in.readLong();
-					stats.numReports = in.readLong();
-					
-					recentTasks.put(task, stats);
-				}
-				
-				return true;
-			} catch (FileNotFoundException e) {
-				LOG.warn("Unable to open recent tasks cache", e);
-			} catch (IOException e) {
-				LOG.warn("Error reading from recent tasks cache", e);
-			}
-		}
-		return false;
-	}
-	
-	private synchronized void flushRecentTasks() {
-		File recentTaskFile = new File(dataDirName, "recentTasks.dat");
-		try {
-			ObjectOutputStream out =
-				new ObjectOutputStream(new FileOutputStream(recentTaskFile));
-			Iterator<Map.Entry<TaskID, TaskStatistics>> iter = recentTasks.entrySet().iterator();
-			
-			out.writeInt(recentTasks.size());
-			
-			while (iter.hasNext()) {
-				Map.Entry<TaskID, TaskStatistics> entry = iter.next();
-				TaskID task = entry.getKey();
-				TaskStatistics stats = entry.getValue();
-				
-				out.writeInt(task.get().length);
-				out.write(task.get());
-				out.writeLong(stats.lastUpdated);
-				out.writeLong(stats.numReports);
-			}
-			
-			out.flush();
-			out.close();
-			
-		} catch (FileNotFoundException e) {
-			LOG.warn("Cannot open recent tasks cache file: cache is not persistent", e);
-			return;
-		} catch (IOException e) {
-			LOG.warn("Error while opening " +
-					"or writing recent tasks cache file: cache is not persistent", e);
-			return;
-		}
-	}
-	
-	@SuppressWarnings("serial")
-	private final static class TaskStatistics implements Serializable {
-		public long lastUpdated = Long.MIN_VALUE;
-		public long numReports = 0;
-	}
-	
-	final class AutoSaver extends TimerTask {
-		@Override
-		public void run() {
-			LOG.debug("Autosaving FileTree data");
-			fileCache.flushAll();
-			flushRecentTasks();
-		}
+	public Iterator<TaskID> getLatestTasks(int num) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 	private final static class LRUFileHandleCache {
@@ -316,18 +314,11 @@ public class FileTreeReportStore implements ReportStore {
 		private Date lastSynched;
 
 		@SuppressWarnings("serial")
-		public LRUFileHandleCache(int size, String dataStoreDirectory) 
+		public LRUFileHandleCache(int size, File dataRootDir) 
 		throws XtraceException {
-			dataRootDir = new File(dataStoreDirectory);
 			CACHE_SIZE = size;
 			lastSynched = new Date();
-			
-			if (!dataRootDir.isDirectory()) {
-				throw new XtraceException("Data Store location isn't a directory: " + dataStoreDirectory);
-			}
-			if (!dataRootDir.canWrite()) {
-				throw new XtraceException("Can't write to data store directory");
-			}
+			this.dataRootDir = dataRootDir;
 			
 			// a 25-entry, LRU file handle cache
 			fCache = new LinkedHashMap<String, BufferedWriter>(CACHE_SIZE, .75F, true) {
@@ -348,6 +339,7 @@ public class FileTreeReportStore implements ReportStore {
 		}
 		
 		public synchronized BufferedWriter getHandle(String task) throws IllegalArgumentException {
+			LOG.debug("Getting handle for task: " + task);
 			if (task.length() < 6) {
 				throw new IllegalArgumentException("Invalid task id: " + task);
 			}
@@ -364,6 +356,8 @@ public class FileTreeReportStore implements ReportStore {
 						LOG.warn("Error creating directory " + l3.toString());
 						return null;
 					}
+				} else {
+					LOG.debug("Directory " + l3.toString() + " already exists; not creating");
 				}
 				
 				// create the file
@@ -373,10 +367,13 @@ public class FileTreeReportStore implements ReportStore {
 				try {
 					BufferedWriter writer = new BufferedWriter(new FileWriter(taskFile, true));
 					fCache.put(task, writer);
+					LOG.debug("Inserting new BufferedWriter into the file cache for task " + task);
 				} catch (IOException e) {
 					LOG.warn("Interal I/O error", e);
 					return null;
 				}
+			} else {
+				LOG.debug("Task " + task + " was already in the cache, no need to insert");
 			}
 			
 			return fCache.get(task);
@@ -399,20 +396,23 @@ public class FileTreeReportStore implements ReportStore {
 		public synchronized void closeAll() {
 			flushAll();
 			
-			Iterator<String> iter = fCache.keySet().iterator();
-			while (iter.hasNext()) {
-				String taskid = iter.next();
-				LOG.debug("Closing handle for file of " + taskid);
-				BufferedWriter writer = fCache.get(taskid);
+			/* We can't use an iterator since we would be modifying it
+			 * when we call fCache.remove()
+			 */
+			String[] taskIds = fCache.keySet().toArray(new String[0]);
+			
+			for (int i = 0; i < taskIds.length; i++) {
+				LOG.debug("Closing handle for file of " + taskIds[i]);
+				BufferedWriter writer = fCache.get(taskIds[i]);
 				if (writer != null) {
 					try {
 						writer.close();
 					} catch (IOException e) {
-						LOG.warn("I/O error closing file for task " + taskid, e);
+						LOG.warn("I/O error closing file for task " + taskIds[i], e);
 					}
 				}
 					
-				fCache.remove(taskid);
+				fCache.remove(taskIds[i]);
 			}
 		}
 		
@@ -454,6 +454,11 @@ public class FileTreeReportStore implements ReportStore {
 		}
 		
 		private String calcNext() {
+			
+			if (in == null) {
+				return null;
+			}
+			
 			// Remember where we are if there isn't a complete report in the stream
 			try {
 				in.mark(4096);

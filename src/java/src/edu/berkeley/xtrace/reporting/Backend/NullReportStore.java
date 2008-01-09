@@ -28,7 +28,6 @@
 
 package edu.berkeley.xtrace.reporting.Backend;
 
-import java.util.Date;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 
@@ -96,29 +95,8 @@ public class NullReportStore implements ReportStore {
 		}
 	}
 
-	public int countByTaskId(String taskId) {
+	public void sync() {
 		// TODO Auto-generated method stub
-		return 0;
+		
 	}
-
-	public long lastUpdatedByTaskId(String taskId) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	public int numReports() {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	public int numUniqueTasks() {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	public Date dataAsOf() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
 }

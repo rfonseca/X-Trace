@@ -28,8 +28,6 @@
 
 package edu.berkeley.xtrace.reporting.Backend;
 
-import java.util.Date;
-import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 
 import edu.berkeley.xtrace.XtraceException;
@@ -39,19 +37,6 @@ public interface ReportStore extends Runnable {
 	public void setReportQueue(BlockingQueue<String> q);
 	
 	public void initialize() throws XtraceException;
+	public void sync();
 	public void shutdown();
-	
-	public Iterator<String> getByTask(String task) throws XtraceException;
-	
-	public Iterator<String> getTasksSince(Long startTime) throws XtraceException;
-
-	public long lastUpdatedByTaskId(String taskId);
-
-	public int countByTaskId(String taskId);
-
-	public int numUniqueTasks();
-
-	public int numReports();
-	
-	public Date dataAsOf();
 }

@@ -69,13 +69,23 @@ public final class Main {
 
 	private static ExecutorService storeExecutor;
 
-	private static ReportStore reportstore;
+	private static QueryableReportStore reportstore;
 	
 	private static final DateFormat DATE_FORMAT =
 		new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
 	
 	public static void main(String[] args) {
 		BasicConfigurator.configure();
+		
+		// If they use the default configuration (the FileTree report store),
+		// then they have to specify the directory in which to store reports
+		if (System.getProperty("xtrace.backend.store") == null) {
+			if (args.length < 1) {
+				System.err.println("Usage: Main <dataDir>");
+				System.exit(1);
+			}
+			System.setProperty("xtrace.backend.storedirectory", args[0]);
+		}
 		
 		setupReportSources();
 		setupReportStore();
@@ -128,16 +138,16 @@ public final class Main {
 	private static void setupReportStore() {
 		reportsToStorageQueue = new ArrayBlockingQueue<String>(1024);
 		
-		String storeStr = "edu.berkeley.xtrace.reporting.Backend.NullReportStore";
+		String storeStr = "edu.berkeley.xtrace.reporting.Backend.FileTreeReportStore";
 		if (System.getProperty("xtrace.backend.store") != null) {
 			storeStr = System.getProperty("xtrace.backend.store");
 		} else {
-			LOG.warn("No backend report store specified... using default (NullReportStore)");
+			LOG.warn("No backend report store specified... using default (FileTreeReportStore)");
 		}
 		
 		reportstore = null;
 		try {
-			reportstore = (ReportStore) Class.forName(storeStr).newInstance();
+			reportstore = (QueryableReportStore) Class.forName(storeStr).newInstance();
 		} catch (InstantiationException e1) {
 			LOG.fatal("Could not instantiate report store", e1);
 			System.exit(-1);
@@ -211,6 +221,8 @@ public final class Main {
 			try {
 				if (target.equals("/getReports")) {
 					handleGetReports(request, response);
+				} else if (target.equals("/getLatestTask")) {
+					handleGetLatestTask(request, response);
 				} else if (target.equals("/latestTasks")) {
 					handleLatestTasks(request, response, false);
 				}  else if (target.equals("/")) {
@@ -232,10 +244,36 @@ public final class Main {
 			if (taskId != null) {
 				Iterator<String> iter;
 				try {
-					iter = reportstore.getByTask(taskId);
+					iter = reportstore.getReportsByTask(taskId);
 				} catch (XtraceException e) {
 					LOG.warn("Error in /getReports", e);
 					out.write(e.toString());
+					return;
+				} 
+				while (iter.hasNext()) {
+					out.write(iter.next());
+					out.write("\n");
+				}
+			}
+		}
+		
+		private void handleGetLatestTask(Request request, Response response)
+		throws IOException {
+			response.setContentType("text/plain");
+			response.setStatus(HttpServletResponse.SC_OK);
+			Writer out = response.getWriter();
+			
+			Iterator<String> iter = reportstore.getTasksSince(Long.MIN_VALUE);
+			
+			String taskId = null;
+			if (iter.hasNext()) {
+				taskId = iter.next();
+			} 
+			
+			if (taskId != null) {
+				try {
+					iter = reportstore.getReportsByTask(taskId);
+				} catch (XtraceException e) {
 					return;
 				} 
 				while (iter.hasNext()) {
@@ -262,14 +300,7 @@ public final class Main {
 				windowHours = 24;
 			}
 			long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
-			Iterator<String> iter;
-			try {
-				iter = reportstore.getTasksSince(startTime);
-			} catch (XtraceException e) {
-				LOG.warn("Internal error", e);
-				out.write("Internal error: " + e.toString());
-				return;
-			}
+			Iterator<String> iter = reportstore.getTasksSince(startTime);
 			if (outputHtml) {
 				out.write("<html><head><title>Latest Tasks</title></head>\n"
 						+ "<body><h1>X-Trace Latest Tasks</h1>\n"

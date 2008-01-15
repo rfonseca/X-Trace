@@ -17,7 +17,13 @@
 	<property name="jar-name"    value="xtrace-2.0pre.jar"/>
 
 	<path id="compile.classpath">
-		<fileset dir="${lib.dir}" includes="**/*.jar"/>
+		<pathelement location="${lib.dir}/je-3.2.44.jar" />
+		<pathelement location="${lib.dir}/jetty-6.1.6.jar" />
+		<pathelement location="${lib.dir}/jetty-util-6.1.6.jar" />
+		<pathelement location="${lib.dir}/log4j-1.2.15.jar" />
+		<pathelement location="${lib.dir}/junit-4.4.jar" />
+		<pathelement location="${lib.dir}/servlet-api-2.5-6.1.6.jar" />
+		<pathelement location="${lib.dir}/derby.jar" />
 	</path>
 
 	<path id="run.classpath">
@@ -31,15 +37,23 @@
 
 	<target name="compile">
 		<mkdir dir="${classes.dir}"/>
-		<javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="compile.classpath" />
-		<javac srcdir="${test.dir}" destdir="${classes.dir}" classpathref="compile.classpath" />
+		<javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
+		<javac srcdir="${test.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
 	</target>
 
 	<target name="jar" depends="compile">
 		<mkdir dir="${jar.dir}"/>
-		<jar destfile="${jar.dir}/${jar-name}" basedir="${classes.dir}">
+		
+		<pathconvert property="mf.classpath" pathsep=" ">
+		    <path refid="compile.classpath" />
+		    <flattenmapper />
+		  </pathconvert>
+			
+		<jar destfile="${jar.dir}/${jar-name}" basedir="${classes.dir}"
+			index="true">
 			<manifest>
-				<attribute name="Main-Class" value="${main-class}"/>
+				<attribute name="Main-Class" value="${main-class}" />
+				<attribute name="Class-Path" value="${mf.classpath}" />
 			</manifest>
 		</jar>
 	</target>
@@ -54,6 +68,7 @@
 				<pathelement location="${jar.dir}/${jar-name}" />
 				<pathelement location="${lib.dir}/junit-4.4.jar" />
 				<pathelement location="${lib.dir}/log4j-1.2.15.jar" />
+				<pathelement location="${lib.dir}/derby.jar" />
 			</classpath>
 
 			<batchtest todir="${report.dir}">

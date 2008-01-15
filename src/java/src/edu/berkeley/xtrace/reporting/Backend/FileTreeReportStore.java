@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.regex.Matcher;
@@ -59,14 +60,17 @@ import edu.berkeley.xtrace.XtraceException;
 
 public final class FileTreeReportStore implements QueryableReportStore {
 	private static final Logger LOG = Logger.getLogger(FileTreeReportStore.class);
+	// TODO: a tag field that gets appended to a list of tags for that task
+	// TODO: a title field that replaces any previous title in that task
 	
 	private String dataDirName;
 	private File dataRootDir;
 	private BlockingQueue<String> incomingReports;
 	private LRUFileHandleCache fileCache;
 	private Connection conn;
-	private PreparedStatement querytestps, insertps, updateps, updatedSincePs;
-	private PreparedStatement numByTask, totalNumReports, totalNumTasks;
+	private PreparedStatement querytestps, insertps, updateps, updatedSincePs, numByTask;
+	private PreparedStatement totalNumReports, totalNumTasks, lastUpdatedByTask, lastNtasks;
+	private boolean shouldOperate = false;
 	
 	private static final Pattern XTRACE_LINE = 
 		Pattern.compile("^X-Trace:\\s+([0-9A-Fa-f]+)$", Pattern.MULTILINE);
@@ -96,6 +100,8 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		
 		// the embedded database keeps metadata about the reports
 		initializeDatabase();
+		
+		shouldOperate = true;
 	}
 	
 	private void initializeDatabase() throws XtraceException {
@@ -128,7 +134,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			// GEO TODO: create indices
 			s.close();
 			conn.commit();
-		} catch (SQLException e) { LOG.warn("warning: ", e); }
+		} catch (SQLException e) { }
 		
 		try {
 			querytestps = conn.prepareStatement("select count(taskid) as rowcount from tasks where taskid = ?");
@@ -139,6 +145,8 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			numByTask = conn.prepareStatement("select numreports from tasks where taskid = ?");
 			totalNumReports = conn.prepareStatement("select sum(numreports) as totalreports from tasks");
 			totalNumTasks = conn.prepareStatement("select count(distinct taskid) as numtasks from tasks");
+			lastUpdatedByTask = conn.prepareStatement("select lastUpdated from tasks where taskid = ?");
+			lastNtasks = conn.prepareStatement("select taskid from tasks order by lastUpdated desc");
 		} catch (SQLException e) {
 			throw new XtraceException("Unable to setup prepared statement", e);
 		}
@@ -212,13 +220,15 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		LOG.info("FileTreeReportStore running with datadir " + dataDirName);
 		
 		while (true) {
-			String msg;
-			try {
-				msg = incomingReports.take();
-			} catch (InterruptedException e1) {
-				continue;
+			if (shouldOperate) {
+				String msg;
+				try {
+					msg = incomingReports.take();
+				} catch (InterruptedException e1) {
+					continue;
+				}
+				receiveReport(msg);
 			}
-			receiveReport(msg);
 		}
 	}
 
@@ -256,8 +266,20 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	}
 
 	public long lastUpdatedByTaskId(String taskId) {
-		// GEOTODO
-		return 0;
+		long ret = 0L;
+		
+		try {
+			lastUpdatedByTask.setString(1, taskId);
+			ResultSet rs = lastUpdatedByTask.executeQuery();
+			if (rs.next()) {
+				Timestamp ts = rs.getTimestamp("lastUpdated");
+				ret = ts.getTime();
+			}
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		
+		return ret;
 	}
 
 	public int numReports() {
@@ -301,8 +323,20 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	}
 	
 	public Iterator<TaskID> getLatestTasks(int num) {
-		// TODO Auto-generated method stub
-		return null;
+		List<TaskID> lst = new ArrayList<TaskID>();
+		
+		try {
+			ResultSet rs = lastNtasks.executeQuery();
+			while (rs.next() && num > 0) {
+				String taskid = rs.getString("taskid");
+				lst.add(TaskID.createFromString(taskid));
+				num -= 1;
+			}
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		
+		return lst.iterator();
 	}
 	
 	private final static class LRUFileHandleCache {

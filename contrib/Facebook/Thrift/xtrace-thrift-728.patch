@@ -1,0 +1,208 @@
+Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src/generate/t_java_generator.cc
+===================================================================
+--- /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src/generate/t_java_generator.cc	(revision 728)
++++ /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src/generate/t_java_generator.cc	(working copy)
+@@ -61,7 +61,11 @@
+     "import java.util.AbstractMap;\n" +
+     "import java.util.HashMap;\n" +
+     "import java.util.HashSet;\n" +
+-    "import com.facebook.thrift.*;\n\n";
++    "import com.facebook.thrift.*;\n" +
++    "import edu.berkeley.xtrace.Metadata;\n" +
++    "import edu.berkeley.xtrace.EventContext;\n" +
++    "import edu.berkeley.xtrace.XtraceEvent;\n" +
++    "import edu.berkeley.xtrace.XtraceProcess;\n\n";
+ }
+ 
+ /**
+@@ -376,9 +380,10 @@
+     }
+     out << declare_field(*m_iter, false) << endl;
+   }
++  indent(out) << "byte[] __xtrace_metadata;" << endl;
+ 
+   // Inner Isset class
+-  if (members.size() > 0) {
++  // X-Trace: ensure that Isset is always there, even if there are no members
+     out <<
+       endl <<
+       indent() << "public final Isset __isset = new Isset();" << endl <<
+@@ -388,11 +393,11 @@
+         indent(out) <<
+           "public boolean " << (*m_iter)->get_name() << " = false;" <<  endl;
+       }
++      indent(out) << "public boolean __xtrace_metadata = false;" << endl;
+     indent_down();
+     out <<
+       indent() << "}" << endl <<
+-      endl;
+-  }
++      endl; 
+ 
+   // Default constructor
+   indent(out) <<
+@@ -513,6 +518,23 @@
+           indent() << "break;" << endl;
+         indent_down();
+       }
++      
++      // X-Trace: add metadata
++      indent(out) <<
++      "case 999:" << endl;
++      indent_up();
++      indent(out) <<
++      "if (field.type == TType.STRING) {" << endl;
++      indent_up();
++      out << indent() << "this.__xtrace_metadata = iprot.readBinary();" << endl;
++      out << indent() << "this.__isset.__xtrace_metadata = true;" << endl;
++      indent_down();
++      out <<
++       indent() << "} else { " << endl <<
++       indent() << "   TProtocolUtil.skip(iprot, field.type);" << endl <<
++       indent() << "}" << endl <<
++       indent() << "break;" << endl;
++      indent_down();
+ 
+       // In the default case we skip the field
+       out <<
+@@ -555,9 +577,10 @@
+   indent(out) << "TStruct struct = new TStruct(\"" << name << "\");" << endl;
+   indent(out) << "oprot.writeStructBegin(struct);" << endl;
+ 
+-  if (!fields.empty()) {
++  // X-Trace: always include the field declaration
++  
+     indent(out) << "TField field = new TField();" << endl;
+-  }
++  
+   for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
+     bool null_allowed = type_can_be_null((*f_iter)->get_type());
+     if (null_allowed) {
+@@ -593,6 +616,15 @@
+       indent(out) << "}" << endl;
+     }
+   }
++  // X-Trace: write out metadata
++  indent(out) << "if (this.__isset.__xtrace_metadata) {" << endl;
++  indent(out) << "  field.name = \"__xtrace_metadata\";" << endl;
++  indent(out) << "  field.type = TType.STRING;" << endl;
++  indent(out) << "  field.id = 999;" << endl;
++  indent(out) << "  oprot.writeFieldBegin(field);" << endl;
++  indent(out) << "  oprot.writeBinary(this.__xtrace_metadata);" << endl;
++  indent(out) << "  oprot.writeFieldEnd();" << endl;
++  indent(out) << "}" << endl;
+   // Write the struct map
+   out <<
+     indent() << "oprot.writeFieldStop();" << endl <<
+@@ -625,9 +657,10 @@
+   indent(out) << "TStruct struct = new TStruct(\"" << name << "\");" << endl;
+   indent(out) << "oprot.writeStructBegin(struct);" << endl;
+ 
+-  if (!fields.empty()) {
++  // X-Trace: always include the field declaration
++  
+     indent(out) << "TField field = new TField();" << endl;
+-  }
++  
+   bool first = true;
+   for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
+     if (first) {
+@@ -672,6 +705,17 @@
+     indent_down();
+     indent(out) << "}";
+   }
++  // X-Trace: write out the metadata
++  out << endl;
++  indent(out) << "if (this.__isset.__xtrace_metadata) {" << endl;
++  indent(out) << "  field.name = \"__xtrace_metadata\";" << endl;
++  indent(out) << "  field.type = TType.STRING;" << endl;
++  indent(out) << "  field.id = 999;" << endl;
++  indent(out) << "  oprot.writeFieldBegin(field);" << endl;
++  indent(out) << "  oprot.writeBinary(this.__xtrace_metadata);" << endl;
++  indent(out) << "  oprot.writeFieldEnd();" << endl;
++  indent(out) << "}" << endl;
++
+   // Write the struct map
+   out <<
+     endl <<
+@@ -970,6 +1014,9 @@
+       indent() << "protected int seqid_;" << endl <<
+       endl;
+   }
++  
++  // X-Trace
++  f_service_ << indent() << "protected Metadata xtraceMd_;" << endl;
+ 
+   // Generate client method implementations
+   vector<t_function*> functions = tservice->get_functions();
+@@ -1028,6 +1075,15 @@
+       indent() << "oprot_.writeMessageBegin(new TMessage(\"" << funname << "\", TMessageType.CALL, seqid_));" << endl <<
+       indent() << argsname << " args = new " << argsname << "();" << endl;
+ 
++    // X-Trace
++    f_service_ <<
++    indent() << "if (EventContext.isValid()) {" << endl <<
++    indent() << "  EventContext.logEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/start" << "\");" << endl <<
++    indent() << "  xtraceMd_ = EventContext.getContext();" << endl <<
++    indent() << "  args.__xtrace_metadata = xtraceMd_.pack();" << endl <<
++    indent() << "  args.__isset.__xtrace_metadata = true;" << endl <<
++    indent() << "}" << endl;
++    
+     for (fld_iter = fields.begin(); fld_iter != fields.end(); ++fld_iter) {
+       f_service_ <<
+         indent() << "args." << (*fld_iter)->get_name() << " = " << (*fld_iter)->get_name() << ";" << endl;
+@@ -1066,6 +1122,19 @@
+         indent() << resultname << " result = new " << resultname << "();" << endl <<
+         indent() << "result.read(iprot_);" << endl <<
+         indent() << "iprot_.readMessageEnd();" << endl;
++      
++      // X-Trace
++      f_service_ <<
++        indent() << "if (result.__isset.__xtrace_metadata) {" << endl <<
++        indent() << "    EventContext.setContext(" << endl <<
++        indent() << "      Metadata.createFromBytes(result.__xtrace_metadata," << endl <<
++        indent() << "         0, result.__xtrace_metadata.length));" << endl <<
++        indent() << "    if (xtraceMd_ != null) {" << endl <<
++        indent() << "       XtraceEvent evt = EventContext.createEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/end\");" << endl <<
++        indent() << "       evt.addEdge(xtraceMd_);" << endl <<
++        indent() << "       evt.sendReport();" << endl <<
++        indent() << "    }" << endl <<
++        indent() << "}" << endl;
+ 
+       // Careful, only return _result if not a void function
+       if (!(*f_iter)->get_returntype()->is_void()) {
+@@ -1255,7 +1324,17 @@
+     indent() << argsname << " args = new " << argsname << "();" << endl <<
+     indent() << "args.read(iprot);" << endl <<
+     indent() << "iprot.readMessageEnd();" << endl;
++  
++  // X-Trace
++  f_service_ <<
++    indent() << "if (args.__isset.__xtrace_metadata) {" << endl <<
++    indent() << "    EventContext.setContext(" << endl <<
++    indent() << "       Metadata.createFromBytes(args.__xtrace_metadata," << endl <<
++    indent() << "          0, args.__xtrace_metadata.length));" << endl <<
++    indent() << "    EventContext.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/start\");" << endl <<
++    indent() << "}" << endl;
+ 
++
+   t_struct* xs = tfunction->get_xceptions();
+   const std::vector<t_field*>& xceptions = xs->get_members();
+   vector<t_field*>::const_iterator x_iter;
+@@ -1300,6 +1379,16 @@
+     f_service_ <<
+       indent() << "result.__isset.success = true;" << endl;
+   }
++  
++  // X-Trace: pull in the current context
++  if (!tfunction->is_async()) {
++     f_service_ <<
++       indent() << "if (EventContext.isValid()) {" << endl <<
++       indent() << "   EventContext.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/end\");" << endl <<
++       indent() << "   result.__xtrace_metadata = EventContext.getContext().pack();" << endl <<
++       indent() << "   result.__isset.__xtrace_metadata = true;" << endl <<
++       indent() << "}" << endl;
++  }
+ 
+   if (!tfunction->is_async() && xceptions.size() > 0) {
+     indent_down();

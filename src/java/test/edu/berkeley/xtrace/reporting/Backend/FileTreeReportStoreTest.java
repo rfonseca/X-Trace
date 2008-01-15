@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -105,12 +106,13 @@ public class FileTreeReportStoreTest {
 		
 		/* Create a set of reports */
 		Metadata[] mds = new Metadata[TOTAL_REPORTS];
+		Report[] reports = new Report[TOTAL_REPORTS];
 		for (int i = 0; i < taskIds.length; i++) {
 			for (int j = 0; j < NUM_STOCHASTIC_REPORTS_PER_TASK; j++) {
 				int idx = i*NUM_STOCHASTIC_REPORTS_PER_TASK + j;
 				mds[idx] = new Metadata(taskIds[i], r.nextInt());
-				Report report = randomReport(mds[idx]);
-				fs.receiveReport(report.toString());
+				reports[idx] = randomReport(mds[idx]);
+				fs.receiveReport(reports[idx].toString());
 			}
 		}
 		
@@ -136,8 +138,85 @@ public class FileTreeReportStoreTest {
 		Arrays.sort(taskStrs);
 		Arrays.sort(stringsSince);
 		assertTrue(Arrays.deepEquals(taskStrs, stringsSince));
+		
+		/* getReportsByTask() simple test: just check to
+		 * make sure that the right number of reports are there
+		 */
+		for (int i = 0; i < NUM_STOCHASTIC_TASKS; i++) {
+			Iterator<String> iter = fs.getReportsByTask(taskStrs[i]);
+			assertTrue(iter.hasNext());
+			int j = 0;
+			while (iter.hasNext()) {
+				iter.next();
+				j++;
+			}
+			assertEquals(NUM_STOCHASTIC_REPORTS_PER_TASK, j);
+		}
 	}
 
+	@Test
+	public void testLastUpdatedByTaskID() {
+		if (!canTest) return;
+		
+		/* Test the null case */
+		fs.sync();
+		assertEquals(0L, fs.lastUpdatedByTaskId("00000000"));
+		
+		/* Test if an insertion updates the time */
+		long startTime = System.currentTimeMillis();
+		
+		Metadata md = new Metadata(new TaskID(8), 0);
+		Report report = randomReport(md);
+		fs.receiveReport(report.toString());
+		
+		/* Sync() the report */
+		fs.sync();
+		
+		long afterFirstInsertion = fs.lastUpdatedByTaskId(md.getTaskId().toString());
+		assertTrue(afterFirstInsertion > startTime);
+		
+		md = new Metadata(new TaskID(8), 0);
+		report = randomReport(md);
+		fs.receiveReport(report.toString());
+		
+		/* Sync() the report */
+		fs.sync();
+		
+		long afterSecondInsertion = fs.lastUpdatedByTaskId(md.getTaskId().toString());
+		assertTrue(afterFirstInsertion < afterSecondInsertion);
+	}
+	
+	@Test
+	public void getLatestTasks() {
+		if (!canTest) return;
+		
+		/* Create a set of reports */
+		Report[] reports = new Report[10];
+		for (int i = 0; i < reports.length; i++) {
+			reports[i] = randomReport(new Metadata(new TaskID(8), r.nextInt()));
+			fs.receiveReport(reports[i].toString());
+			try {
+				Thread.sleep(25);
+			} catch (InterruptedException e) { }
+		}
+		
+		fs.sync();
+		
+		/* Test '1' case */
+		Iterator<TaskID> iter = fs.getLatestTasks(1);
+		assertTrue(iter.hasNext());
+		assertEquals(reports[9].getMetadata().getTaskId(), iter.next());
+		assertFalse(iter.hasNext());
+		
+		/* Test '2' case */
+		iter = fs.getLatestTasks(2);
+		assertTrue(iter.hasNext());
+		assertEquals(reports[9].getMetadata().getTaskId(), iter.next());
+		assertTrue(iter.hasNext());
+		assertEquals(reports[8].getMetadata().getTaskId(), iter.next());
+		assertFalse(iter.hasNext());
+	}
+	
 	@After
 	public void tearDown() throws Exception {
 		fs.shutdown();

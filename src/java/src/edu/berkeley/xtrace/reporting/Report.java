@@ -25,6 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// TODO: create a dirty bit; if the dirty bit is unset, and the map is created,
+//  just return the buffer, not the map
 
 package edu.berkeley.xtrace.reporting;
 

@@ -169,6 +169,8 @@ public final class Main {
 		
 		storeExecutor = Executors.newSingleThreadExecutor();
 		storeExecutor.execute(reportstore);
+		
+		// TODO: setup a shutdown hook to flush the report store then close it.
 	}
 	
 	private static void setupBackplane() {

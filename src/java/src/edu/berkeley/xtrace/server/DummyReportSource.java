@@ -26,7 +26,7 @@
  */
 
 
-package edu.berkeley.xtrace.reporting.Backend;
+package edu.berkeley.xtrace.server;
 
 import java.util.Date;
 import java.util.Random;

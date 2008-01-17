@@ -1,4 +1,4 @@
-package edu.berkeley.xtrace.reporting.Backend;
+package edu.berkeley.xtrace.server;
 
 import static org.junit.Assert.*;
 
@@ -16,6 +16,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import edu.berkeley.xtrace.reporting.Report;
+import edu.berkeley.xtrace.server.FileTreeReportStore;
 
 public class FileTreeIteratorTest {
 	private static final Logger LOG = Logger.getLogger(FileTreeIteratorTest.class);

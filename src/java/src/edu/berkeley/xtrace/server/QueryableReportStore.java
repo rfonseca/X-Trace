@@ -1,10 +1,12 @@
-package edu.berkeley.xtrace.reporting.Backend;
+package edu.berkeley.xtrace.server;
 
 import java.util.Date;
 import java.util.Iterator;
 
 import edu.berkeley.xtrace.TaskID;
 import edu.berkeley.xtrace.XtraceException;
+
+// TODO: add limit and offset for pagination
 
 public interface QueryableReportStore extends ReportStore {
 	

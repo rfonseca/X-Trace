@@ -26,7 +26,7 @@
  */
 
 
-package edu.berkeley.xtrace.reporting.Backend;
+package edu.berkeley.xtrace.server;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -62,6 +62,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	private static final Logger LOG = Logger.getLogger(FileTreeReportStore.class);
 	// TODO: a tag field that gets appended to a list of tags for that task
 	// TODO: a title field that replaces any previous title in that task
+	// TODO: support user-specified jdbc connect strings
 	
 	private String dataDirName;
 	private File dataRootDir;

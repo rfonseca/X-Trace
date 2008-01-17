@@ -26,77 +26,40 @@
  */
 
 
-package edu.berkeley.xtrace.reporting.Backend;
+package edu.berkeley.xtrace.server;
 
-import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
-
-import org.apache.log4j.Logger;
 
 import edu.berkeley.xtrace.XtraceException;
 
-/**
- * @author George Porter
- *
- */
-public class NullReportStore implements ReportStore {
-	private static final Logger LOG = Logger.getLogger(NullReportStore.class);
-	private BlockingQueue<String> q;
-
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#getByTask(java.lang.String)
+public interface ReportStore extends Runnable {
+	
+	/**
+	 * Sets a BlockingQueue that is used to pass reports from the rest of the backend
+	 * into this ReportStore.
+	 * 
+	 * @param q the queue to receive reports from
+	 * @see BlockingQueue
 	 */
-	public Iterator<String> getByTask(String task) throws XtraceException {
-		return null;
-	}
-
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#getTasksSince(java.lang.Long)
+	public void setReportQueue(BlockingQueue<String> q);
+	
+	/**
+	 * Initializes this ReportStore.  This must be called before
+	 * starting and using the store.
+	 * 
+	 * @throws XtraceException if initialization fails
 	 */
-	public Iterator<String> getTasksSince(Long startTime)
-			throws XtraceException {
-		return null;
-	}
-
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#initialize()
+	public void initialize() throws XtraceException;
+	
+	/**
+	 * Commits any buffered reports to stable storage.
 	 */
-	public void initialize() throws XtraceException {
-		LOG.info("NullReportStore initialized");
-	}
-
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#setReportQueue(java.util.concurrent.BlockingQueue)
+	public void sync();
+	
+	/**
+	 * Closes any resources obtained by this ReportStore.  Once shutdown
+	 * is called, reports will no longer be stored or retrieved from
+	 * the incoming BlockingQueue
 	 */
-	public void setReportQueue(BlockingQueue<String> q) {
-		this.q = q;
-	}
-
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#shutdown()
-	 */
-	public void shutdown() {
-	}
-
-	/* (non-Javadoc)
-	 * @see java.lang.Runnable#run()
-	 */
-	public void run() {
-		LOG.info("NullReportSource waiting for reports");
-		
-		while (true) {
-			String message = null;
-			try {
-				message = q.take();
-			} catch (InterruptedException e) {
-				LOG.warn("Internal error", e);
-			}
-			LOG.debug("ReportStore: " + message);
-		}
-	}
-
-	public void sync() {
-		// TODO Auto-generated method stub
-		
-	}
+	public void shutdown();
 }

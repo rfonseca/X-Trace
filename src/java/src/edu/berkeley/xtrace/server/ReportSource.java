@@ -26,40 +26,16 @@
  */
 
 
-package edu.berkeley.xtrace.reporting.Backend;
+package edu.berkeley.xtrace.server;
 
 import java.util.concurrent.BlockingQueue;
 
 import edu.berkeley.xtrace.XtraceException;
 
-public interface ReportStore extends Runnable {
+public interface ReportSource extends Runnable {
 	
-	/**
-	 * Sets a BlockingQueue that is used to pass reports from the rest of the backend
-	 * into this ReportStore.
-	 * 
-	 * @param q the queue to receive reports from
-	 * @see BlockingQueue
-	 */
 	public void setReportQueue(BlockingQueue<String> q);
 	
-	/**
-	 * Initializes this ReportStore.  This must be called before
-	 * starting and using the store.
-	 * 
-	 * @throws XtraceException if initialization fails
-	 */
 	public void initialize() throws XtraceException;
-	
-	/**
-	 * Commits any buffered reports to stable storage.
-	 */
-	public void sync();
-	
-	/**
-	 * Closes any resources obtained by this ReportStore.  Once shutdown
-	 * is called, reports will no longer be stored or retrieved from
-	 * the incoming BlockingQueue
-	 */
 	public void shutdown();
 }

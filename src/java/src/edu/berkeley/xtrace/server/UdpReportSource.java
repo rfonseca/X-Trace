@@ -1,4 +1,4 @@
-package edu.berkeley.xtrace.reporting.Backend;
+package edu.berkeley.xtrace.server;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;

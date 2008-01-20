@@ -63,7 +63,7 @@ public class FileTreeIteratorTest {
 		
 		for (int i = 0; i < reports.length; i++) {
 			assertTrue(iter.hasNext());
-			assertEquals(reports[i].toString(), iter.next());
+			assertEquals(reports[i], iter.next());
 		}
 		
 		assertFalse(iter.hasNext());
@@ -80,7 +80,7 @@ public class FileTreeIteratorTest {
 		
 		for (int i = 0; i < midpoint; i++) {
 			assertTrue(iter.hasNext());
-			assertEquals(reports[i].toString(), iter.next());
+			assertEquals(reports[i], iter.next());
 		}
 		
 		// ... then open another iterator and read a half too
@@ -89,15 +89,15 @@ public class FileTreeIteratorTest {
 		
 		for (int i = 0; i < midpoint; i++) {
 			assertTrue(iter2.hasNext());
-			assertEquals(reports[i].toString(), iter2.next());
+			assertEquals(reports[i], iter2.next());
 		}
 		
 		// Finally, interleave the reading from both files
 		for (int i = midpoint; i < reports.length; i++) {
 			assertTrue(iter.hasNext());
 			assertTrue(iter2.hasNext());
-			assertEquals(reports[i].toString(), iter.next());
-			assertEquals(reports[i].toString(), iter2.next());
+			assertEquals(reports[i], iter.next());
+			assertEquals(reports[i], iter2.next());
 		}
 		
 		assertFalse(iter.hasNext());

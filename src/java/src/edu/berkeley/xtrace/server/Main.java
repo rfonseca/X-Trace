@@ -34,6 +34,9 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executor;
@@ -52,7 +55,9 @@ import org.mortbay.jetty.Response;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.AbstractHandler;
 
+import edu.berkeley.xtrace.TaskID;
 import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.reporting.Report;
 
 /**
  * @author George Porter
@@ -79,12 +84,12 @@ public final class Main {
 		
 		// If they use the default configuration (the FileTree report store),
 		// then they have to specify the directory in which to store reports
-		if (System.getProperty("xtrace.backend.store") == null) {
+		if (System.getProperty("xtrace.server.store") == null) {
 			if (args.length < 1) {
 				System.err.println("Usage: Main <dataDir>");
 				System.exit(1);
 			}
-			System.setProperty("xtrace.backend.storedirectory", args[0]);
+			System.setProperty("xtrace.server.storedirectory", args[0]);
 		}
 		
 		setupReportSources();
@@ -99,13 +104,13 @@ public final class Main {
 		sourcesExecutor = new ThreadPerTaskExecutor();
 		
 		// Default input sources
-		String sourcesStr = "edu.berkeley.xtrace.reporting.Backend.UdpReportSource," +
-		                    "edu.berkeley.xtrace.reporting.Backend.TcpReportSource";
+		String sourcesStr = "edu.berkeley.xtrace.server.UdpReportSource," +
+		                    "edu.berkeley.xtrace.server.TcpReportSource";
 		
-		if (System.getProperty("xtrace.backend.sources") != null) {
-			sourcesStr = System.getProperty("xtrace.backend.sources");
+		if (System.getProperty("xtrace.server.sources") != null) {
+			sourcesStr = System.getProperty("xtrace.server.sources");
 		} else {
-			LOG.warn("No backend report sources specified... using defaults (Udp,Tcp)");
+			LOG.warn("No server report sources specified... using defaults (Udp,Tcp)");
 		}
 		String[] sourcesLst = sourcesStr.split(",");
 		
@@ -138,11 +143,11 @@ public final class Main {
 	private static void setupReportStore() {
 		reportsToStorageQueue = new ArrayBlockingQueue<String>(1024);
 		
-		String storeStr = "edu.berkeley.xtrace.reporting.Backend.FileTreeReportStore";
-		if (System.getProperty("xtrace.backend.store") != null) {
-			storeStr = System.getProperty("xtrace.backend.store");
+		String storeStr = "edu.berkeley.xtrace.server.FileTreeReportStore";
+		if (System.getProperty("xtrace.server.store") != null) {
+			storeStr = System.getProperty("xtrace.server.store");
 		} else {
-			LOG.warn("No backend report store specified... using default (FileTreeReportStore)");
+			LOG.warn("No server report store specified... using default (FileTreeReportStore)");
 		}
 		
 		reportstore = null;
@@ -170,7 +175,18 @@ public final class Main {
 		storeExecutor = Executors.newSingleThreadExecutor();
 		storeExecutor.execute(reportstore);
 		
-		// TODO: setup a shutdown hook to flush the report store then close it.
+		/* Every N seconds we should sync the report store */
+		String syncIntervalStr = System.getProperty("xtrace.server.syncinterval", "5");
+		long syncInterval = Integer.parseInt(syncIntervalStr);
+		Timer timer= new Timer();
+		timer.schedule(new SyncTimer(reportstore), syncInterval*1000, syncInterval*1000);
+		
+		/* Add a shutdown hook to flush and close the report store */
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+		  public void run() {
+			  reportstore.shutdown();
+		  }
+		});
 	}
 	
 	private static void setupBackplane() {
@@ -200,7 +216,7 @@ public final class Main {
 	
 	private static void setupWebInterface() {
 		int httpPort =
-			Integer.parseInt(System.getProperty("xtrace.backend.httpport", "8080"));
+			Integer.parseInt(System.getProperty("xtrace.server.httpport", "8080"));
 		
 		Server server = new Server(httpPort);
 		server.setHandler(new HttpHandler());
@@ -244,16 +260,16 @@ public final class Main {
 			Writer out = response.getWriter();
 			String taskId = request.getParameter("taskid");
 			if (taskId != null) {
-				Iterator<String> iter;
+				Iterator<Report> iter;
 				try {
-					iter = reportstore.getReportsByTask(taskId);
+					iter = reportstore.getReportsByTask(TaskID.createFromString(taskId));
 				} catch (XtraceException e) {
 					LOG.warn("Error in /getReports", e);
 					out.write(e.toString());
 					return;
 				} 
 				while (iter.hasNext()) {
-					out.write(iter.next());
+					out.write(iter.next().toString());
 					out.write("\n");
 				}
 			}
@@ -265,23 +281,21 @@ public final class Main {
 			response.setStatus(HttpServletResponse.SC_OK);
 			Writer out = response.getWriter();
 			
-			Iterator<String> iter = reportstore.getTasksSince(Long.MIN_VALUE);
-			
-			String taskId = null;
-			if (iter.hasNext()) {
-				taskId = iter.next();
-			} 
-			
-			if (taskId != null) {
-				try {
-					iter = reportstore.getReportsByTask(taskId);
-				} catch (XtraceException e) {
-					return;
-				} 
+			List<TaskID> task = reportstore.getLatestTasks(1);
+			if (task.size() != 1) {
+				LOG.warn("getLatestTasks(1) returned " + task.size() + " entries");
+				return;
+			}
+			try {
+				Iterator<Report> iter = reportstore.getReportsByTask(task.get(0));
 				while (iter.hasNext()) {
-					out.write(iter.next());
+					Report r = iter.next();
+					out.write(r.toString());
 					out.write("\n");
 				}
+			} catch (XtraceException e) {
+				LOG.warn("Internal error", e);
+				out.write("Internal error: " + e);
 			}
 		}
 
@@ -302,7 +316,7 @@ public final class Main {
 				windowHours = 24;
 			}
 			long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
-			Iterator<String> iter = reportstore.getTasksSince(startTime);
+			Iterator<TaskID> iter = reportstore.getTasksSince(startTime);
 			if (outputHtml) {
 				out.write("<html><head><title>Latest Tasks</title></head>\n"
 						+ "<body><h1>X-Trace Latest Tasks</h1>\n"
@@ -314,7 +328,7 @@ public final class Main {
 			// Remember last taskID in case the table contains a duplicate (not sure this can happen)
 			boolean first = true;
 			while (iter.hasNext()) {
-				String taskId = iter.next();
+				TaskID taskId = iter.next();
 
 				long time = reportstore.lastUpdatedByTaskId(taskId);
 				Date date = new Date(time);
@@ -345,6 +359,18 @@ public final class Main {
 			} else {
 				out.write("\n]\n");
 			}
+		}
+	}
+
+	private static final class SyncTimer extends TimerTask {
+		private QueryableReportStore reportstore;
+
+		public SyncTimer(QueryableReportStore reportstore) {
+			this.reportstore = reportstore;
+		}
+
+		public void run() {
+			reportstore.sync();
 		}
 	}
 }

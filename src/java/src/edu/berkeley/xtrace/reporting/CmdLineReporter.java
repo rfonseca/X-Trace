@@ -30,9 +30,13 @@ package edu.berkeley.xtrace.reporting;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Random;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+
+import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.TaskID;
 
 /**
  * This tool can be used to send reports from the command line directly to
@@ -54,9 +58,11 @@ import org.apache.log4j.Logger;
  */
 public final class CmdLineReporter {
 	private static final Logger LOG = Logger.getLogger(CmdLineReporter.class);
+	private static Random r;
 
 	public static void main(String[] args) {
 		BasicConfigurator.configure();
+		r = new Random();
 		
 		out("X-Trace command line reporter");
 		
@@ -71,6 +77,9 @@ public final class CmdLineReporter {
 			}
 			reportFile(args[1]);
 			
+		} else if (args[0].equalsIgnoreCase("-random")) {
+			reportRandom();
+			
 		} else {
 			if (args.length % 2 != 0) {
 				usage();
@@ -82,14 +91,22 @@ public final class CmdLineReporter {
 	
 	private static void reportArgs(String[] args) {
 		ReportingContext ctx = ReportingContext.getReportCtx();
-		Report r = new Report();
+		Report rpt = new Report();
 		
 		for (int i = 0; i < args.length; i += 2) {
-			r.put(args[i], args[i+1]);
+			rpt.put(args[i], args[i+1]);
 		}
 		
-		LOG.info("Sending the report:\n" + r);
-		ctx.sendReport(r);
+		LOG.info("Sending the report:\n" + rpt);
+		ctx.sendReport(rpt);
+		ctx.close();
+	}
+	
+	private static void reportRandom() {
+		ReportingContext ctx = ReportingContext.getReportCtx();
+		Report rpt = randomReport(new TaskID(8));
+		LOG.info("Sending the report:\n" + rpt);
+		ctx.sendReport(rpt);
 		ctx.close();
 	}
 
@@ -148,10 +165,33 @@ public final class CmdLineReporter {
 	private static void usage() {
 		out("CmdLineReporter key1 value1 ?key2 value2? ?key3 value3? ...");
 		out("or CmdLineReporter -file <filename>");
+		out("or CmdLineReporter -random");
 		out("   where <filename> contains valid X-Trace reports, separated by newlines");
 	}
 	
 	private static void out(String s) {
 		System.out.println(s);
+	}
+	
+	private static Report randomReport(TaskID task) {
+		Report report = new Report();
+		
+		final int numKeys = r.nextInt(15);
+		for (int i = 0; i < numKeys; i++) {
+			report.put("Key"+i, randomString(10 + r.nextInt(20)));
+		}
+		report.put("Tag", "exp1");
+		report.put("X-Trace", new Metadata(task, r.nextInt()).toString());
+		return report;
+	}
+	
+	private static String randomString(int length) {
+		char[] ar = new char[length];
+		
+		for (int i = 0; i < length; i++) {
+			ar[i] = (char)((int)'a' + r.nextInt(25));
+		}
+
+		return new String(ar);
 	}
 }

@@ -64,9 +64,6 @@ public final class DummyReportSource implements ReportSource {
 		this.updaterTask = new Timer("TaskUpdater");
 	}
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportSource#initialize()
-	 */
 	public void initialize() throws XtraceException {
 		TaskListUpdater updater = new TaskListUpdater();
 		updaterTask.scheduleAtFixedRate(updater, 0, 1000);
@@ -89,16 +86,10 @@ public final class DummyReportSource implements ReportSource {
 		this.generator.start();
 	}
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportSource#setReportQueue(java.util.concurrent.BlockingQueue)
-	 */
 	public void setReportQueue(BlockingQueue<String> q) {
 		this.q = q;
 	}
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportSource#shutdown()
-	 */
 	public void shutdown() {
 		updaterTask.cancel();
 	}

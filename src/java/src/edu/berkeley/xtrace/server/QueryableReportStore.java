@@ -1,28 +1,31 @@
 package edu.berkeley.xtrace.server;
 
-import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
 
 import edu.berkeley.xtrace.TaskID;
 import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.reporting.Report;
 
 // TODO: add limit and offset for pagination
 
 public interface QueryableReportStore extends ReportStore {
 	
-	public Iterator<String> getReportsByTask(String task) throws XtraceException;
+	public Iterator<Report> getReportsByTask(TaskID task) throws XtraceException;
 	
-	public Iterator<String> getTasksSince(Long startTime);
+	public Iterator<TaskID> getTasksSince(long startTime);
 	
-	public Iterator<TaskID> getLatestTasks(int num);
+	public List<TaskID> getLatestTasks(int num);
+	
+	public List<TaskID> getTasksByTag(String tag);
 
-	public long lastUpdatedByTaskId(String taskId);
+	public long lastUpdatedByTaskId(TaskID taskId);
 
-	public int countByTaskId(String taskId);
+	public int countByTaskId(TaskID taskId);
 
 	public int numUniqueTasks();
 
 	public int numReports();
 	
-	public Date dataAsOf();
+	public long dataAsOf();
 }

@@ -253,4 +253,19 @@ public class Report {
 			map = null;
 		}
 	}
+	
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		} else if (!(o instanceof Report)) {
+			return false;
+		} else {
+			Report r = (Report) o;
+			if (toString().trim().equalsIgnoreCase(r.toString().trim())) {
+				return true;
+			}
+		}
+		return false;
+	}
 }

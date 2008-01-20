@@ -43,44 +43,26 @@ public class NullReportStore implements ReportStore {
 	private static final Logger LOG = Logger.getLogger(NullReportStore.class);
 	private BlockingQueue<String> q;
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#getByTask(java.lang.String)
-	 */
 	public Iterator<String> getByTask(String task) throws XtraceException {
 		return null;
 	}
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#getTasksSince(java.lang.Long)
-	 */
 	public Iterator<String> getTasksSince(Long startTime)
 			throws XtraceException {
 		return null;
 	}
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#initialize()
-	 */
 	public void initialize() throws XtraceException {
 		LOG.info("NullReportStore initialized");
 	}
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#setReportQueue(java.util.concurrent.BlockingQueue)
-	 */
 	public void setReportQueue(BlockingQueue<String> q) {
 		this.q = q;
 	}
 
-	/* (non-Javadoc)
-	 * @see edu.berkeley.xtrace.reporting.Backend.ReportStore#shutdown()
-	 */
 	public void shutdown() {
 	}
 
-	/* (non-Javadoc)
-	 * @see java.lang.Runnable#run()
-	 */
 	public void run() {
 		LOG.info("NullReportSource waiting for reports");
 		

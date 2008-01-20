@@ -43,7 +43,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,12 +56,14 @@ import org.apache.log4j.Logger;
 import edu.berkeley.xtrace.Metadata;
 import edu.berkeley.xtrace.TaskID;
 import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.reporting.Report;
 
 public final class FileTreeReportStore implements QueryableReportStore {
 	private static final Logger LOG = Logger.getLogger(FileTreeReportStore.class);
-	// TODO: a tag field that gets appended to a list of tags for that task
 	// TODO: a title field that replaces any previous title in that task
 	// TODO: support user-specified jdbc connect strings
+	// TODO: when the FileTreeReportStore loads up, fill in the derby database with
+	//       metdata about the already stored reports
 	
 	private String dataDirName;
 	private File dataRootDir;
@@ -71,7 +72,9 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	private Connection conn;
 	private PreparedStatement querytestps, insertps, updateps, updatedSincePs, numByTask;
 	private PreparedStatement totalNumReports, totalNumTasks, lastUpdatedByTask, lastNtasks;
+	private PreparedStatement gettagsps;
 	private boolean shouldOperate = false;
+	private boolean databaseInitialized = false;
 	
 	private static final Pattern XTRACE_LINE = 
 		Pattern.compile("^X-Trace:\\s+([0-9A-Fa-f]+)$", Pattern.MULTILINE);
@@ -83,9 +86,9 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	@SuppressWarnings("serial")
 	public synchronized void initialize() throws XtraceException {
 		// Directory to store reports into
-		dataDirName = System.getProperty("xtrace.backend.storedirectory");
+		dataDirName = System.getProperty("xtrace.server.storedirectory");
 		if (dataDirName == null) {
-			throw new XtraceException("FileTreeReportStore selected, but no xtrace.backend.storedirectory specified");
+			throw new XtraceException("FileTreeReportStore selected, but no xtrace.server.storedirectory specified");
 		}
 		dataRootDir = new File(dataDirName);
 		
@@ -131,26 +134,35 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			s.executeUpdate("create table tasks(taskid varchar(40) not null primary key, " +
 					"firstSeen timestamp default current_timestamp not null, " +
 					"lastUpdated timestamp default current_timestamp not null, " +
-					"numreports integer default 1 not null)");
-			// GEO TODO: create indices
+					"numreports integer default 1 not null, " +
+					"tags varchar(512), " +
+					"title varchar(128))");
+			s.executeUpdate("create index idx_tasks on tasks(taskid)");
+			s.executeUpdate("create index idx_firstseen on tasks(firstSeen)");
+			s.executeUpdate("create index idx_lastUpdated on tasks(lastUpdated)");
+			s.executeUpdate("create index idx_tags on tasks(tags)");
+			s.executeUpdate("create index idx_title on tasks(title)");
 			s.close();
 			conn.commit();
 		} catch (SQLException e) { }
 		
 		try {
 			querytestps = conn.prepareStatement("select count(taskid) as rowcount from tasks where taskid = ?");
-			insertps = conn.prepareStatement("insert into tasks (taskid) values (?)");
+			insertps = conn.prepareStatement("insert into tasks (taskid, tags) values (?, ?)");
 			updateps = conn.prepareStatement("update tasks set lastUpdated = current_timestamp, " +
-					"numreports = numreports + 1 where taskid = ?");
+					"numreports = numreports + 1, " +
+					"tags = tags || ? where taskid = ?");
 			updatedSincePs = conn.prepareStatement("select taskid from tasks where firstseen >= ?");
 			numByTask = conn.prepareStatement("select numreports from tasks where taskid = ?");
 			totalNumReports = conn.prepareStatement("select sum(numreports) as totalreports from tasks");
 			totalNumTasks = conn.prepareStatement("select count(distinct taskid) as numtasks from tasks");
 			lastUpdatedByTask = conn.prepareStatement("select lastUpdated from tasks where taskid = ?");
 			lastNtasks = conn.prepareStatement("select taskid from tasks order by lastUpdated desc");
+			gettagsps = conn.prepareStatement("select taskid from tasks where tags like '%'||?||'%'");
 		} catch (SQLException e) {
 			throw new XtraceException("Unable to setup prepared statement", e);
 		}
+		databaseInitialized = true;
 	}
 
 	public void sync() {
@@ -159,27 +171,32 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	
 	public synchronized void shutdown() {
 		LOG.info("Shutting down the FileTreeReportStore");
-		fileCache.closeAll();
-		try {
-			DriverManager.getConnection("jdbc:derby:tasks;shutdown=true");
-		} catch (SQLException e) {
-			if (!e.getSQLState().equals("08006")) {
-				LOG.warn("Unable to shutdown embedded database", e);
+		if (fileCache != null)
+		    fileCache.closeAll();
+		
+		if (databaseInitialized) {
+			try {
+				DriverManager.getConnection("jdbc:derby:tasks;shutdown=true");
+			} catch (SQLException e) {
+				if (!e.getSQLState().equals("08006")) {
+					LOG.warn("Unable to shutdown embedded database", e);
+				}
 			}
+			databaseInitialized = false;
 		}
 	}
 
 	void receiveReport(String msg) {
 		Matcher matcher = XTRACE_LINE.matcher(msg);
 		if (matcher.find()) {
-			
+			Report r = Report.createFromString(msg);
 			String xtraceLine = matcher.group(1);
 			Metadata meta = Metadata.createFromString(xtraceLine);
 			
 			if (meta.getTaskId() != null) {
 				TaskID task = meta.getTaskId();
 				String taskstr = task.toString();
-				BufferedWriter fout = fileCache.getHandle(taskstr);
+				BufferedWriter fout = fileCache.getHandle(task);
 				if (fout == null) {
 					LOG.warn("Discarding a report due to internal fileCache error: " + msg);
 					return;
@@ -195,15 +212,28 @@ public final class FileTreeReportStore implements QueryableReportStore {
 				
 				// Update index
 				try {
+					
+					// Extract the tag, if present
+					String tag = "";
+					List<String> tags = r.get("Tag");
+					for (int i = 0; tags != null && i < tags.size(); i++) {
+						tag = tag + tags.get(i);
+						if (i < tags.size() - 1) {
+							tag = tag + ",";
+						}
+					}
+					
 					// Find out whether to do an insert or an update
 					querytestps.setString(1, taskstr.toUpperCase());
 					ResultSet rs = querytestps.executeQuery();
 					rs.next();
 					if (rs.getInt("rowcount") == 0) {
 						insertps.setString(1, taskstr.toUpperCase());
+						insertps.setString(2, tag);
 						insertps.executeUpdate();
 					} else {
-						updateps.setString(1, taskstr.toUpperCase());
+						updateps.setString(1, tag);
+						updateps.setString(2, taskstr.toUpperCase());
 						updateps.executeUpdate();
 					}
 					conn.commit();
@@ -233,18 +263,18 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		}
 	}
 
-	public Iterator<String> getReportsByTask(String task) {
-		return new FileTreeIterator(taskIdtoFile(task));
+	public Iterator<Report> getReportsByTask(TaskID task) {
+		return new FileTreeIterator(taskIdtoFile(task.toString()));
 	}
 	
-	public Iterator<String> getTasksSince(Long milliSecondsSince1970) {
-		ArrayList<String> lst = new ArrayList<String>();
+	public Iterator<TaskID> getTasksSince(long milliSecondsSince1970) {
+		ArrayList<TaskID> lst = new ArrayList<TaskID>();
 		
 		try {
 			updatedSincePs.setString(1, (new Timestamp(milliSecondsSince1970)).toString());
 			ResultSet rs = updatedSincePs.executeQuery();
 			while (rs.next()) {
-				lst.add(rs.getString("taskid"));
+				lst.add(TaskID.createFromString(rs.getString("taskid")));
 			}
 		} catch (SQLException e) {
 			LOG.warn("Internal SQL error", e);
@@ -252,10 +282,26 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		
 		return lst.iterator();
 	}
-	
-	public int countByTaskId(String taskId) {
+
+	public List<TaskID> getTasksByTag(String tag) {
+		List<TaskID> lst = new ArrayList<TaskID>();
+		
 		try {
-			numByTask.setString(1, taskId.toUpperCase());
+			gettagsps.setString(1, tag);
+			ResultSet rs = gettagsps.executeQuery();
+			while (rs.next()) {
+				lst.add(TaskID.createFromString(rs.getString("taskid")));
+			}
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		
+		return lst;
+	}
+	
+	public int countByTaskId(TaskID taskId) {
+		try {
+			numByTask.setString(1, taskId.toString().toUpperCase());
 			ResultSet rs = numByTask.executeQuery();
 			if (rs.next()) {
 				return rs.getInt("numreports");
@@ -266,11 +312,11 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return 0;
 	}
 
-	public long lastUpdatedByTaskId(String taskId) {
+	public long lastUpdatedByTaskId(TaskID taskId) {
 		long ret = 0L;
 		
 		try {
-			lastUpdatedByTask.setString(1, taskId);
+			lastUpdatedByTask.setString(1, taskId.toString());
 			ResultSet rs = lastUpdatedByTask.executeQuery();
 			if (rs.next()) {
 				Timestamp ts = rs.getTimestamp("lastUpdated");
@@ -319,11 +365,11 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return taskFile;
 	}
 
-	public Date dataAsOf() {
+	public long dataAsOf() {
 		return fileCache.lastSynched();
 	}
 	
-	public Iterator<TaskID> getLatestTasks(int num) {
+	public List<TaskID> getLatestTasks(int num) {
 		List<TaskID> lst = new ArrayList<TaskID>();
 		
 		try {
@@ -336,8 +382,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		} catch (SQLException e) {
 			LOG.warn("Internal SQL error", e);
 		}
-		
-		return lst.iterator();
+		return lst;
 	}
 	
 	private final static class LRUFileHandleCache {
@@ -346,13 +391,13 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		private final int CACHE_SIZE;
 		
 		private Map<String, BufferedWriter> fCache = null;
-		private Date lastSynched;
+		private long lastSynched;
 
 		@SuppressWarnings("serial")
 		public LRUFileHandleCache(int size, File dataRootDir) 
 		throws XtraceException {
 			CACHE_SIZE = size;
-			lastSynched = new Date();
+			lastSynched = System.currentTimeMillis();
 			this.dataRootDir = dataRootDir;
 			
 			// a 25-entry, LRU file handle cache
@@ -373,20 +418,21 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			};
 		}
 		
-		public synchronized BufferedWriter getHandle(String task) throws IllegalArgumentException {
-			LOG.debug("Getting handle for task: " + task);
-			if (task.length() < 6) {
-				throw new IllegalArgumentException("Invalid task id: " + task);
+		public synchronized BufferedWriter getHandle(TaskID task) throws IllegalArgumentException {
+			String taskstr = task.toString();
+			LOG.debug("Getting handle for task: " + taskstr);
+			if (taskstr.length() < 6) {
+				throw new IllegalArgumentException("Invalid task id: " + taskstr);
 			}
 			
-			if (!fCache.containsKey(task)) {
+			if (!fCache.containsKey(taskstr)) {
 				// Create the appropriate three-level directories (l1, l2, and l3)
-				File l1 = new File(dataRootDir, task.substring(0, 2));
-				File l2 = new File(l1, task.substring(2, 4));
-				File l3 = new File(l2, task.substring(4, 6));
+				File l1 = new File(dataRootDir, taskstr.substring(0, 2));
+				File l2 = new File(l1, taskstr.substring(2, 4));
+				File l3 = new File(l2, taskstr.substring(4, 6));
 				
 				if (!l3.exists()) {
-					LOG.debug("Creating directory for task " + task + ": " + l3.toString());
+					LOG.debug("Creating directory for task " + taskstr + ": " + l3.toString());
 					if (!l3.mkdirs()) {
 						LOG.warn("Error creating directory " + l3.toString());
 						return null;
@@ -396,22 +442,22 @@ public final class FileTreeReportStore implements QueryableReportStore {
 				}
 				
 				// create the file
-				File taskFile = new File(l3, task + ".txt");
+				File taskFile = new File(l3, taskstr + ".txt");
 				
 				// insert the PrintWriter into the cache
 				try {
 					BufferedWriter writer = new BufferedWriter(new FileWriter(taskFile, true));
-					fCache.put(task, writer);
-					LOG.debug("Inserting new BufferedWriter into the file cache for task " + task);
+					fCache.put(taskstr, writer);
+					LOG.debug("Inserting new BufferedWriter into the file cache for task " + taskstr);
 				} catch (IOException e) {
 					LOG.warn("Interal I/O error", e);
 					return null;
 				}
 			} else {
-				LOG.debug("Task " + task + " was already in the cache, no need to insert");
+				LOG.debug("Task " + taskstr + " was already in the cache, no need to insert");
 			}
 			
-			return fCache.get(task);
+			return fCache.get(taskstr);
 		}
 		
 		public synchronized void flushAll() {
@@ -425,7 +471,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 				}
 			}
 
-			lastSynched = new Date();
+			lastSynched = System.currentTimeMillis();
 		}
 		
 		public synchronized void closeAll() {
@@ -451,15 +497,15 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			}
 		}
 		
-		public Date lastSynched() {
+		public long lastSynched() {
 			return lastSynched;
 		}
 	}
 
-	final static class FileTreeIterator implements Iterator<String> {
+	final static class FileTreeIterator implements Iterator<Report> {
 		
 		private BufferedReader in = null;
-		private String nextReport = null;
+		private Report nextReport = null;
 
 		FileTreeIterator(File taskfile) {
 			
@@ -482,13 +528,13 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		/* (non-Javadoc)
 		 * @see java.util.Iterator#next()
 		 */
-		public String next() {
-			String ret = nextReport;
+		public Report next() {
+			Report ret = nextReport;
 			nextReport = calcNext();
 			return ret;
 		}
 		
-		private String calcNext() {
+		private Report calcNext() {
 			
 			if (in == null) {
 				return null;
@@ -534,7 +580,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			} while (line != null && !line.equals(""));
 			
 			// Find the end of the report (an empty line)
-			return reportbuf.toString();
+			return Report.createFromString(reportbuf.toString());
 		}
 
 		/* (non-Javadoc)

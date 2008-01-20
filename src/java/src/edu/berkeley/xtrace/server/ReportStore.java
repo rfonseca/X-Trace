@@ -35,7 +35,7 @@ import edu.berkeley.xtrace.XtraceException;
 public interface ReportStore extends Runnable {
 	
 	/**
-	 * Sets a BlockingQueue that is used to pass reports from the rest of the backend
+	 * Sets a BlockingQueue that is used to pass reports from the rest of the server
 	 * into this ReportStore.
 	 * 
 	 * @param q the queue to receive reports from

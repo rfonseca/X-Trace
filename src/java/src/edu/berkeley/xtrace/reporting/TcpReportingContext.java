@@ -48,7 +48,7 @@ public final class TcpReportingContext extends ReportingContext
 {
 	private static final Logger LOG = Logger.getLogger(TcpReportingContext.class);
 	
-	// Connection to backend or frontend daemon.
+	// Connection to server or frontend daemon.
 	private Socket socket;
 	private DataOutputStream out;
 	

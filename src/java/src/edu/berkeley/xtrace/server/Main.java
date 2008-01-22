@@ -270,7 +270,6 @@ public final class Main {
       String uri = request.getRequestURI();
       int pathLen = request.getServletPath().length() + 1;
       String taskId = uri.length() >= pathLen ? uri.substring(pathLen) : null;
-      System.out.println(taskId);
       Writer out = response.getWriter();
       if (taskId != null) {
         Iterator<Report> iter;

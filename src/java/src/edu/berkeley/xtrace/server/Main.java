@@ -44,6 +44,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -54,6 +55,10 @@ import org.mortbay.jetty.Request;
 import org.mortbay.jetty.Response;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.AbstractHandler;
+import org.mortbay.jetty.servlet.Context;
+import org.mortbay.jetty.servlet.DefaultServlet;
+import org.mortbay.jetty.servlet.ServletHolder;
+import org.mortbay.servlet.CGI;
 
 import edu.berkeley.xtrace.TaskID;
 import edu.berkeley.xtrace.XtraceException;
@@ -215,153 +220,179 @@ public final class Main {
 	 }
 	
 	private static void setupWebInterface() {
-		int httpPort =
-			Integer.parseInt(System.getProperty("xtrace.server.httpport", "8080"));
-		
-		Server server = new Server(httpPort);
-		server.setHandler(new HttpHandler());
-		try {
-			server.start();
-		} catch (Exception e) {
-			LOG.warn("Unable to start web interface", e);
-		}
+    String webDir = System.getProperty("xtrace.backend.webui.dir");
+    if (webDir == null) {
+      LOG.warn("No webui directory specified... using default (./src/webui)");
+      webDir = "./src/webui";
+    }
+    
+    int httpPort =
+      Integer.parseInt(System.getProperty("xtrace.backend.httpport", "8080"));
+    
+    Server server = new Server(httpPort);
+    Context context = new Context(server, "/");
+    
+    // Create a CGI servlet for scripts in webui/cgi-bin 
+    ServletHolder cgiHolder = new ServletHolder(new CGI());
+    cgiHolder.setInitParameter("cgibinResourceBase", webDir + "/cgi-bin");
+    context.addServlet(cgiHolder, "*.cgi");
+    context.addServlet(cgiHolder, "*.pl");
+    context.addServlet(cgiHolder, "*.py");
+    context.addServlet(cgiHolder, "*.rb");
+
+    context.addServlet(new ServletHolder(
+        new GetReportsServlet()), "/reports/*");
+    context.addServlet(new ServletHolder(
+        new GetLatestTaskServlet()), "/latestTask");
+    context.addServlet(new ServletHolder(
+        new LatestTasksServlet()), "/latestTasks");
+    
+    // Add an IndexServlet as the default servlet. This servlet will serve
+    // a human-readable (HTML) latest tasks page for "/" and serve static
+    // content for any other URL. Being the default servlet, it will get
+    // invoked only for URLs that does not match the other patterns where we
+    // have registered servlets above.
+    context.setResourceBase(webDir + "/html");
+    context.addServlet(new ServletHolder(new IndexServlet()), "/");
+    
+    try {
+      server.start();
+    } catch (Exception e) {
+      LOG.warn("Unable to start web interface", e);
+    }
 	}
 	
-	private static class HttpHandler extends AbstractHandler {
-		
-		public void handle(String target, HttpServletRequest httpreq,
-				HttpServletResponse httpresp, int dispatch) throws IOException,
-				ServletException {
-			Request request = (httpreq instanceof Request) ? 
-					(Request)httpreq : HttpConnection.getCurrentConnection().getRequest();
-			Response response = (httpresp instanceof Response) ?
-					(Response)httpresp : HttpConnection.getCurrentConnection().getResponse();
-			try {
-				if (target.equals("/getReports")) {
-					handleGetReports(request, response);
-				} else if (target.equals("/getLatestTask")) {
-					handleGetLatestTask(request, response);
-				} else if (target.equals("/latestTasks")) {
-					handleLatestTasks(request, response, false);
-				}  else if (target.equals("/")) {
-					handleLatestTasks(request, response, true);
-				} else {
-					response.sendError(HttpServletResponse.SC_NOT_FOUND);
-				}
-			} finally {
-				request.setHandled(true);
-			}
-		}
-
-		private void handleGetReports(Request request, Response response)
-		throws IOException {
-			response.setContentType("text/plain");
-			response.setStatus(HttpServletResponse.SC_OK);
-			Writer out = response.getWriter();
-			String taskId = request.getParameter("taskid");
-			if (taskId != null) {
-				Iterator<Report> iter;
-				try {
-					iter = reportstore.getReportsByTask(TaskID.createFromString(taskId));
-				} catch (XtraceException e) {
-					LOG.warn("Error in /getReports", e);
-					out.write(e.toString());
-					return;
-				} 
-				while (iter.hasNext()) {
-					out.write(iter.next().toString());
-					out.write("\n");
-				}
-			}
-		}
-		
-		private void handleGetLatestTask(Request request, Response response)
-		throws IOException {
-			response.setContentType("text/plain");
-			response.setStatus(HttpServletResponse.SC_OK);
-			Writer out = response.getWriter();
-			
-			List<TaskID> task = reportstore.getLatestTasks(1);
-			if (task.size() != 1) {
-				LOG.warn("getLatestTasks(1) returned " + task.size() + " entries");
-				return;
-			}
-			try {
-				Iterator<Report> iter = reportstore.getReportsByTask(task.get(0));
-				while (iter.hasNext()) {
-					Report r = iter.next();
-					out.write(r.toString());
-					out.write("\n");
-				}
-			} catch (XtraceException e) {
-				LOG.warn("Internal error", e);
-				out.write("Internal error: " + e);
-			}
-		}
-
-		private void handleLatestTasks(Request request, Response response, 
-				boolean outputHtml)
-		throws IOException {
-			if (outputHtml)
-				response.setContentType("text/html");
-			else
-				response.setContentType("text/plain");
-			response.setStatus(HttpServletResponse.SC_OK);
-			Writer out = response.getWriter();
-			long windowHours;
-			try {
-				windowHours = Long.parseLong(request.getParameter("window"));
-				if (windowHours < 0) throw new IllegalArgumentException();
-			} catch(Exception ex) {
-				windowHours = 24;
-			}
-			long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
-			Iterator<TaskID> iter = reportstore.getTasksSince(startTime);
-			if (outputHtml) {
-				out.write("<html><head><title>Latest Tasks</title></head>\n"
-						+ "<body><h1>X-Trace Latest Tasks</h1>\n"
-						+ "<table border=1 cellspacing=0 cellpadding=3>\n"
-						+ "<tr><th>Date</th><th>TaskID</th><th># Reports</th></tr>\n");
-			} else {
-				out.write("[\n");
-			}
-			// Remember last taskID in case the table contains a duplicate (not sure this can happen)
-			boolean first = true;
-			while (iter.hasNext()) {
-				TaskID taskId = iter.next();
-
-				long time = reportstore.lastUpdatedByTaskId(taskId);
-				Date date = new Date(time);
-
-				int count = reportstore.countByTaskId(taskId);
-
-				if (outputHtml) {
-					out.write("<tr><td>" + date.toString() + "</td><td>"
-							+ "<a href=\"getReports?taskid=" + taskId
-							+ "\">" + taskId + "</a></td><td>" + count
-							+ "</td></tr>\n");
-				} else {
-					if (!first)
-					out.write(",\n");
-					out.write("{ \"taskid\":\"" + taskId
-							+ "\", \"date-time\":\"" + DATE_FORMAT.format(date)
-							+ "\", \"reportcount\":\"" + count + "\" }");
-				}
-				first = false;
-			}
-			if (outputHtml) {
-				out.write("</table>\n");
-				int numTasks = reportstore.numUniqueTasks();
-				int numReports = reportstore.numReports();
-				out.write("<p>Database size: " + numTasks + " tasks, " 
-						+ numReports + " reports.  Data valid as of: " + reportstore.dataAsOf() + "</p>\n");
-				out.write("</body></html>\n");
-			} else {
-				out.write("\n]\n");
-			}
-		}
+	private static class GetReportsServlet extends HttpServlet {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
+      response.setContentType("text/plain");
+      response.setStatus(HttpServletResponse.SC_OK);
+      String uri = request.getRequestURI();
+      int pathLen = request.getServletPath().length() + 1;
+      String taskId = uri.length() >= pathLen ? uri.substring(pathLen) : null;
+      System.out.println(taskId);
+      Writer out = response.getWriter();
+      if (taskId != null) {
+        Iterator<Report> iter;
+        try {
+          iter = reportstore.getReportsByTask(TaskID.createFromString(taskId));
+        } catch (XtraceException e) {
+          throw new ServletException(e);
+        }
+        while (iter.hasNext()) {
+          out.write(iter.next().toString());
+          out.write("\n");
+        }
+      }
+    }
+  }
+	
+	private static class GetLatestTaskServlet extends HttpServlet {
+	  protected void doGet(HttpServletRequest request, HttpServletResponse response)
+	      throws ServletException, IOException {
+      response.setContentType("text/plain");
+      response.setStatus(HttpServletResponse.SC_OK);
+      Writer out = response.getWriter();
+      
+      List<TaskID> task = reportstore.getLatestTasks(1);
+      if (task.size() != 1) {
+        LOG.warn("getLatestTasks(1) returned " + task.size() + " entries");
+        return;
+      }
+      try {
+        Iterator<Report> iter = reportstore.getReportsByTask(task.get(0));
+        while (iter.hasNext()) {
+          Report r = iter.next();
+          out.write(r.toString());
+          out.write("\n");
+        }
+      } catch (XtraceException e) {
+        LOG.warn("Internal error", e);
+        out.write("Internal error: " + e);
+      }
+	  }
 	}
+  
+  private static class LatestTasksServlet extends HttpServlet {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
+      doLatestTasks(request, response, false);
+    }
+  }
+  
+  private static class IndexServlet extends DefaultServlet {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
+      if(request.getRequestURI().equals("/")) {
+        doLatestTasks(request, response, true);
+      } else {
+        super.doGet(request, response);
+      }
+    }
+  }
 
+  private static void doLatestTasks(HttpServletRequest request, 
+      HttpServletResponse response, boolean outputHtml)
+      throws ServletException, IOException {
+    if (outputHtml)
+      response.setContentType("text/html");
+    else
+      response.setContentType("text/plain");
+    response.setStatus(HttpServletResponse.SC_OK);
+    Writer out = response.getWriter();
+    long windowHours;
+    try {
+      windowHours = Long.parseLong(request.getParameter("window"));
+      if (windowHours < 0) throw new IllegalArgumentException();
+    } catch(Exception ex) {
+      windowHours = 24;
+    }
+    long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
+    Iterator<TaskID> iter = reportstore.getTasksSince(startTime);
+    if (outputHtml) {
+      out.write("<html><head><title>Latest Tasks</title></head>\n"
+          + "<body><h1>X-Trace Latest Tasks</h1>\n"
+          + "<table border=1 cellspacing=0 cellpadding=3>\n"
+          + "<tr><th>Date</th><th>TaskID</th><th># Reports</th></tr>\n");
+    } else {
+      out.write("[\n");
+    }
+    // Remember last taskID in case the table contains a duplicate (not sure this can happen)
+    boolean first = true;
+    while (iter.hasNext()) {
+      TaskID taskId = iter.next();
+
+      long time = reportstore.lastUpdatedByTaskId(taskId);
+      Date date = new Date(time);
+
+      int count = reportstore.countByTaskId(taskId);
+
+      if (outputHtml) {
+        out.write("<tr><td>" + date.toString() + "</td><td>"
+            + "<a href=\"getReports?taskid=" + taskId
+            + "\">" + taskId + "</a></td><td>" + count
+            + "</td></tr>\n");
+      } else {
+        if (!first)
+        out.write(",\n");
+        out.write("{ \"taskid\":\"" + taskId
+            + "\", \"date-time\":\"" + DATE_FORMAT.format(date)
+            + "\", \"reportcount\":\"" + count + "\" }");
+      }
+      first = false;
+    }
+    if (outputHtml) {
+      out.write("</table>\n");
+      int numTasks = reportstore.numUniqueTasks();
+      int numReports = reportstore.numReports();
+      out.write("<p>Database size: " + numTasks + " tasks, " 
+          + numReports + " reports.  Data valid as of: " + reportstore.dataAsOf() + "</p>\n");
+      out.write("</body></html>\n");
+    } else {
+      out.write("\n]\n");
+    }
+  }
+  
 	private static final class SyncTimer extends TimerTask {
 		private QueryableReportStore reportstore;
 

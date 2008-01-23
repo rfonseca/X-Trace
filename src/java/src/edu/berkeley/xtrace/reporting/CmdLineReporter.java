@@ -180,7 +180,7 @@ public final class CmdLineReporter {
 		for (int i = 0; i < numKeys; i++) {
 			report.put("Key"+i, randomString(10 + r.nextInt(20)));
 		}
-		report.put("Tag", "exp1");
+		
 		report.put("X-Trace", new Metadata(task, r.nextInt()).toString());
 		return report;
 	}

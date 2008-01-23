@@ -50,11 +50,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
-import org.mortbay.jetty.HttpConnection;
-import org.mortbay.jetty.Request;
-import org.mortbay.jetty.Response;
 import org.mortbay.jetty.Server;
-import org.mortbay.jetty.handler.AbstractHandler;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.DefaultServlet;
 import org.mortbay.jetty.servlet.ServletHolder;
@@ -239,6 +235,7 @@ public final class Main {
     context.addServlet(cgiHolder, "*.pl");
     context.addServlet(cgiHolder, "*.py");
     context.addServlet(cgiHolder, "*.rb");
+    context.addServlet(cgiHolder, "*.tcl");
 
     context.addServlet(new ServletHolder(
         new GetReportsServlet()), "/reports/*");
@@ -246,6 +243,10 @@ public final class Main {
         new GetLatestTaskServlet()), "/latestTask");
     context.addServlet(new ServletHolder(
         new LatestTasksServlet()), "/latestTasks");
+    context.addServlet(new ServletHolder(
+        new TagServlet()), "/tag/*");
+    context.addServlet(new ServletHolder(
+        new TagJSONServlet()), "/tagjson/*");
     
     // Add an IndexServlet as the default servlet. This servlet will serve
     // a human-readable (HTML) latest tasks page for "/" and serve static
@@ -269,7 +270,7 @@ public final class Main {
       response.setStatus(HttpServletResponse.SC_OK);
       String uri = request.getRequestURI();
       int pathLen = request.getServletPath().length() + 1;
-      String taskId = uri.length() >= pathLen ? uri.substring(pathLen) : null;
+      String taskId = uri.length() > pathLen ? uri.substring(pathLen) : null;
       Writer out = response.getWriter();
       if (taskId != null) {
         Iterator<Report> iter;
@@ -318,6 +319,20 @@ public final class Main {
       doLatestTasks(request, response, false);
     }
   }
+  
+  private static class TagServlet extends HttpServlet {
+	    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+	        throws ServletException, IOException {
+	      doTag(request, response, true);
+	    }
+	  }
+  
+  private static class TagJSONServlet extends HttpServlet {
+	    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+	        throws ServletException, IOException {
+	      doTag(request, response, false);
+	    }
+	  }
   
   private static class IndexServlet extends DefaultServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -368,7 +383,7 @@ public final class Main {
 
       if (outputHtml) {
         out.write("<tr><td>" + date.toString() + "</td><td>"
-            + "<a href=\"getReports?taskid=" + taskId
+            + "<a href=\"reports/" + taskId
             + "\">" + taskId + "</a></td><td>" + count
             + "</td></tr>\n");
       } else {
@@ -391,6 +406,71 @@ public final class Main {
       out.write("\n]\n");
     }
   }
+  
+  private static void doTag(HttpServletRequest request, 
+	      HttpServletResponse response, boolean outputHtml)
+	      throws ServletException, IOException {
+	    if (outputHtml)
+	      response.setContentType("text/html");
+	    else
+	      response.setContentType("text/plain");
+	    response.setStatus(HttpServletResponse.SC_OK);
+	    Writer out = response.getWriter();
+	    
+	    String uri = request.getRequestURI();
+	    int pathLen = request.getServletPath().length() + 1;
+	    String tag = uri.length() > pathLen ? uri.substring(pathLen) : null;
+	    if (tag == null || tag.equalsIgnoreCase("")) {
+	    	out.write("<h1>No tag specified</h1>");
+	    	out.flush();
+	    	return;
+	    }
+	    
+	    List<TaskID> tasks = reportstore.getTasksByTag(tag);
+	    if (outputHtml) {
+	      out.write("<html><head><title>Tasks with tag '"+tag+"'</title></head>\n"
+	          + "<body><h1>X-Trace Tasks with tag '"+tag+"'</h1>\n"
+	          + "<table border=1 cellspacing=0 cellpadding=3>\n"
+	          + "<tr><th>Date</th><th>TaskID</th><th># Reports</th></tr>\n");
+	    } else {
+	      out.write("[\n");
+	    }
+	    // Remember last taskID in case the table contains a duplicate (not sure this can happen)
+	    boolean first = true;
+	    for (int i = 0; i < tasks.size(); i++) {
+	      TaskID taskId = tasks.get(i);
+
+	      long time = reportstore.lastUpdatedByTaskId(taskId);
+	      Date date = new Date(time);
+
+	      int count = reportstore.countByTaskId(taskId);
+
+	      if (outputHtml) {
+	        out.write("<tr><td>" + date.toString() + "</td><td>"
+	            + "<a href=\"reports/" + taskId
+	            + "\">" + taskId + "</a></td><td>" + count
+	            + "</td></tr>\n");
+	      } else {
+	        if (!first)
+	        out.write(",\n");
+	        out.write("{ \"taskid\":\"" + taskId
+	            + "\", \"date-time\":\"" + DATE_FORMAT.format(date)
+	            + "\", \"reportcount\":\"" + count + "\" }");
+	      }
+	      first = false;
+	    }
+	    if (outputHtml) {
+	      out.write("</table>\n");
+	      int numTasks = reportstore.numUniqueTasks();
+	      int numReports = reportstore.numReports();
+	      out.write("<p>Database size: " + numTasks + " tasks, " 
+	          + numReports + " reports.  Data valid as of: " + new Date(reportstore.dataAsOf()) + "</p>\n");
+	      out.write("</body></html>\n");
+	    } else {
+	      out.write("\n]\n");
+	    }
+	  }
+
   
 	private static final class SyncTimer extends TimerTask {
 		private QueryableReportStore reportstore;

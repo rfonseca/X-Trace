@@ -75,7 +75,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	private PreparedStatement gettagsps;
 	private boolean shouldOperate = false;
 	private boolean databaseInitialized = false;
-	
+
 	private static final Pattern XTRACE_LINE = 
 		Pattern.compile("^X-Trace:\\s+([0-9A-Fa-f]+)$", Pattern.MULTILINE);
 	
@@ -195,7 +195,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			
 			if (meta.getTaskId() != null) {
 				TaskID task = meta.getTaskId();
-				String taskstr = task.toString();
+				String taskstr = task.toString().toUpperCase();
 				BufferedWriter fout = fileCache.getHandle(task);
 				if (fout == null) {
 					LOG.warn("Discarding a report due to internal fileCache error: " + msg);
@@ -223,17 +223,19 @@ public final class FileTreeReportStore implements QueryableReportStore {
 						}
 					}
 					
+					
 					// Find out whether to do an insert or an update
-					querytestps.setString(1, taskstr.toUpperCase());
+					querytestps.setString(1, taskstr);
 					ResultSet rs = querytestps.executeQuery();
 					rs.next();
 					if (rs.getInt("rowcount") == 0) {
-						insertps.setString(1, taskstr.toUpperCase());
+						insertps.setString(1, taskstr);
 						insertps.setString(2, tag);
 						insertps.executeUpdate();
 					} else {
+						// TODO: If the tag already exists, we shouldn't append the new tag
 						updateps.setString(1, tag);
-						updateps.setString(2, taskstr.toUpperCase());
+						updateps.setString(2, taskstr);
 						updateps.executeUpdate();
 					}
 					conn.commit();

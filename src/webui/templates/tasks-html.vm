@@ -1,0 +1,21 @@
+<html>
+<head><title>$title<title></head>
+<body>
+<h1>$title</h1>
+<table border=1 cellspacing=0 cellpadding=3>
+<tr><th>Date</th><th>TaskID</th><th># Reports</th></tr>
+#foreach($task in $tasks)
+  <tr>
+    <td>$task.date</td>
+    <td><a href="/reports/$task.taskId">$task.taskId</a></td>
+    <td>$task.reportCount</td>
+  </tr>
+#end
+<table>
+#if($showStats)
+  <p>
+  Database size: $reportStore.numUniqueTasks() tasks, $reportStore.numReports() reports.
+  </p>
+#end
+</body>
+</html>

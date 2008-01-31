@@ -151,8 +151,12 @@ public final class ReportLoadTest {
 			for (int i = 0; i < numKeys; i++) {
 				report.put("Key"+i, randomString(10 + r.nextInt(20)));
 			}
+			report.put("Timestamp", ""+System.currentTimeMillis());
 			report.put("Sequence", ""+numSent++);
 			report.put("X-Trace", new Metadata(task, r.nextInt()).toString());
+			if(numSent == 1) {
+				report.put("Tag", "loadtest");
+			}
 			return report;
 		}
 		

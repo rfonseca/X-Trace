@@ -32,8 +32,11 @@ import java.io.IOException;
 import java.io.Writer;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -50,6 +53,11 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
+import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.Velocity;
+import org.apache.velocity.exception.MethodInvocationException;
+import org.apache.velocity.exception.ParseErrorException;
+import org.apache.velocity.exception.ResourceNotFoundException;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.servlet.Context;
 import org.mortbay.jetty.servlet.DefaultServlet;
@@ -77,7 +85,7 @@ public final class Main {
 
 	private static QueryableReportStore reportstore;
 	
-	private static final DateFormat DATE_FORMAT =
+	private static final DateFormat JSON_DATE_FORMAT =
 		new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
 	
 	public static void main(String[] args) {
@@ -216,15 +224,29 @@ public final class Main {
 	 }
 	
 	private static void setupWebInterface() {
-    String webDir = System.getProperty("xtrace.backend.webui.dir");
-    if (webDir == null) {
-      LOG.warn("No webui directory specified... using default (./src/webui)");
-      webDir = "./src/webui";
-    }
+		String webDir = System.getProperty("xtrace.backend.webui.dir");
+		if (webDir == null) {
+			LOG.warn("No webui directory specified... using default (./src/webui)");
+			webDir = "./src/webui";
+		}
     
     int httpPort =
       Integer.parseInt(System.getProperty("xtrace.backend.httpport", "8080"));
-    
+
+		// Initialize Velocity template engine
+		try {
+			Velocity.setProperty(Velocity.RUNTIME_LOG_LOGSYSTEM_CLASS,
+					"org.apache.velocity.runtime.log.Log4JLogChute");
+			Velocity.setProperty("runtime.log.logsystem.log4j.logger",
+					"edu.berkeley.xtrace.server.Main");
+			Velocity.setProperty("file.resource.loader.path", webDir + "/templates");
+			Velocity.setProperty("file.resource.loader.cache", "true");
+			Velocity.init();
+		} catch (Exception e) {
+			LOG.warn("Failed to initialize Velocity", e);
+		}
+		
+		// Create Jetty server
     Server server = new Server(httpPort);
     Context context = new Context(server, "/");
     
@@ -316,21 +338,39 @@ public final class Main {
   private static class LatestTasksServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
-      doLatestTasks(request, response, false);
+    	Collection<TaskInfo> tasks = getLatestTasks(request);
+      showTasksAsJson(response, tasks);
     }
   }
   
   private static class TagServlet extends HttpServlet {
 	    protected void doGet(HttpServletRequest request, HttpServletResponse response)
 	        throws ServletException, IOException {
-	      doTag(request, response, true);
+	      String uri = request.getRequestURI();
+	      int pathLen = request.getServletPath().length() + 1;
+	      String tag = uri.length() > pathLen ? uri.substring(pathLen) : null;
+	      if (tag == null || tag.equalsIgnoreCase("")) {
+	      	response.sendError(505, "No tag given");
+	      } else {
+	      	Collection<TaskInfo> taskInfos = 
+	      		getTaskInfos(reportstore.getTasksByTag(tag).iterator());
+	      	showTasksAsHtml(response, taskInfos, "Tasks with tag: " + tag, false);
+	      }
 	    }
 	  }
   
   private static class TagJSONServlet extends HttpServlet {
 	    protected void doGet(HttpServletRequest request, HttpServletResponse response)
 	        throws ServletException, IOException {
-	      doTag(request, response, false);
+	    	String uri = request.getRequestURI();
+	      int pathLen = request.getServletPath().length() + 1;
+	      String tag = uri.length() > pathLen ? uri.substring(pathLen) : null;
+	      if (tag == null || tag.equalsIgnoreCase("")) {
+		      showTasksAsJson(response, new LinkedList<TaskInfo>());
+	      } else {
+	      	showTasksAsJson(response, 
+	      			getTaskInfos(reportstore.getTasksByTag(tag).iterator()));
+	      }
 	    }
 	  }
   
@@ -338,22 +378,16 @@ public final class Main {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
       if(request.getRequestURI().equals("/")) {
-        doLatestTasks(request, response, true);
+        Collection<TaskInfo> tasks = getLatestTasks(request);
+        showTasksAsHtml(response, tasks, "X-Trace Latest Tasks", true);
       } else {
         super.doGet(request, response);
       }
     }
   }
 
-  private static void doLatestTasks(HttpServletRequest request, 
-      HttpServletResponse response, boolean outputHtml)
+  private static Collection<TaskInfo> getLatestTasks(HttpServletRequest request)
       throws ServletException, IOException {
-    if (outputHtml)
-      response.setContentType("text/html");
-    else
-      response.setContentType("text/plain");
-    response.setStatus(HttpServletResponse.SC_OK);
-    Writer out = response.getWriter();
     long windowHours;
     try {
       windowHours = Long.parseLong(request.getParameter("window"));
@@ -363,114 +397,53 @@ public final class Main {
     }
     long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
     Iterator<TaskID> iter = reportstore.getTasksSince(startTime);
-    if (outputHtml) {
-      out.write("<html><head><title>Latest Tasks</title></head>\n"
-          + "<body><h1>X-Trace Latest Tasks</h1>\n"
-          + "<table border=1 cellspacing=0 cellpadding=3>\n"
-          + "<tr><th>Date</th><th>TaskID</th><th># Reports</th></tr>\n");
-    } else {
-      out.write("[\n");
-    }
-    // Remember last taskID in case the table contains a duplicate (not sure this can happen)
-    boolean first = true;
-    while (iter.hasNext()) {
-      TaskID taskId = iter.next();
-
-      long time = reportstore.lastUpdatedByTaskId(taskId);
-      Date date = new Date(time);
-
-      int count = reportstore.countByTaskId(taskId);
-
-      if (outputHtml) {
-        out.write("<tr><td>" + date.toString() + "</td><td>"
-            + "<a href=\"reports/" + taskId
-            + "\">" + taskId + "</a></td><td>" + count
-            + "</td></tr>\n");
-      } else {
-        if (!first)
-        out.write(",\n");
-        out.write("{ \"taskid\":\"" + taskId
-            + "\", \"date-time\":\"" + DATE_FORMAT.format(date)
-            + "\", \"reportcount\":\"" + count + "\" }");
-      }
-      first = false;
-    }
-    if (outputHtml) {
-      out.write("</table>\n");
-      int numTasks = reportstore.numUniqueTasks();
-      int numReports = reportstore.numReports();
-      out.write("<p>Database size: " + numTasks + " tasks, " 
-          + numReports + " reports.  Data valid as of: " + reportstore.dataAsOf() + "</p>\n");
-      out.write("</body></html>\n");
-    } else {
-      out.write("\n]\n");
-    }
+    return getTaskInfos(iter);
   }
-  
-  private static void doTag(HttpServletRequest request, 
-	      HttpServletResponse response, boolean outputHtml)
-	      throws ServletException, IOException {
-	    if (outputHtml)
-	      response.setContentType("text/html");
-	    else
-	      response.setContentType("text/plain");
-	    response.setStatus(HttpServletResponse.SC_OK);
-	    Writer out = response.getWriter();
-	    
-	    String uri = request.getRequestURI();
-	    int pathLen = request.getServletPath().length() + 1;
-	    String tag = uri.length() > pathLen ? uri.substring(pathLen) : null;
-	    if (tag == null || tag.equalsIgnoreCase("")) {
-	    	out.write("<h1>No tag specified</h1>");
-	    	out.flush();
-	    	return;
-	    }
-	    
-	    List<TaskID> tasks = reportstore.getTasksByTag(tag);
-	    if (outputHtml) {
-	      out.write("<html><head><title>Tasks with tag '"+tag+"'</title></head>\n"
-	          + "<body><h1>X-Trace Tasks with tag '"+tag+"'</h1>\n"
-	          + "<table border=1 cellspacing=0 cellpadding=3>\n"
-	          + "<tr><th>Date</th><th>TaskID</th><th># Reports</th></tr>\n");
-	    } else {
-	      out.write("[\n");
-	    }
-	    // Remember last taskID in case the table contains a duplicate (not sure this can happen)
-	    boolean first = true;
-	    for (int i = 0; i < tasks.size(); i++) {
-	      TaskID taskId = tasks.get(i);
 
-	      long time = reportstore.lastUpdatedByTaskId(taskId);
-	      Date date = new Date(time);
+	private static Collection<TaskInfo> getTaskInfos(Iterator<TaskID> iter) {
+		ArrayList<TaskInfo> infos = new ArrayList<TaskInfo>();
+    while (iter.hasNext()) {
+    	TaskID taskId = iter.next();
+      Date date = new Date(reportstore.lastUpdatedByTaskId(taskId));
+      int count = reportstore.countByTaskId(taskId);
+      infos.add(new TaskInfo(taskId, date, count));
+    }
+    return infos;
+	}
 
-	      int count = reportstore.countByTaskId(taskId);
+	private static void showTasksAsJson(HttpServletResponse response,
+			Collection<TaskInfo> tasks) throws IOException {
+		response.setContentType("text/plain");
+    VelocityContext context = new VelocityContext();
+    context.put("tasks", tasks);
+    context.put("dateFormat", JSON_DATE_FORMAT);
+    try {
+			Velocity.mergeTemplate("tasks-json.vm", "UTF-8", context, response.getWriter());
+      response.setStatus(HttpServletResponse.SC_OK);
+		} catch (Exception e) {
+			LOG.warn("Failed to display tasks-json.vm", e);
+			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+					"Failed to display tasks-json.vm");
+		}
+	}
 
-	      if (outputHtml) {
-	        out.write("<tr><td>" + date.toString() + "</td><td>"
-	            + "<a href=\"reports/" + taskId
-	            + "\">" + taskId + "</a></td><td>" + count
-	            + "</td></tr>\n");
-	      } else {
-	        if (!first)
-	        out.write(",\n");
-	        out.write("{ \"taskid\":\"" + taskId
-	            + "\", \"date-time\":\"" + DATE_FORMAT.format(date)
-	            + "\", \"reportcount\":\"" + count + "\" }");
-	      }
-	      first = false;
-	    }
-	    if (outputHtml) {
-	      out.write("</table>\n");
-	      int numTasks = reportstore.numUniqueTasks();
-	      int numReports = reportstore.numReports();
-	      out.write("<p>Database size: " + numTasks + " tasks, " 
-	          + numReports + " reports.  Data valid as of: " + new Date(reportstore.dataAsOf()) + "</p>\n");
-	      out.write("</body></html>\n");
-	    } else {
-	      out.write("\n]\n");
-	    }
-	  }
-
+	private static void showTasksAsHtml(HttpServletResponse response,
+			Collection<TaskInfo> tasks, String title, boolean showDbStats) throws IOException {
+		response.setContentType("text/html");
+		VelocityContext context = new VelocityContext();
+		context.put("tasks", tasks);
+		context.put("title", title);
+		context.put("reportStore", reportstore);
+		context.put("showStats", showDbStats);
+		try {
+			Velocity.mergeTemplate("tasks-html.vm", "UTF-8", context, response.getWriter());
+		  response.setStatus(HttpServletResponse.SC_OK);
+		} catch (Exception e) {
+			LOG.warn("Failed to display tasks-html.vm", e);
+			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+					"Failed to display tasks-html.vm");
+		}
+	}
   
 	private static final class SyncTimer extends TimerTask {
 		private QueryableReportStore reportstore;

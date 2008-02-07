@@ -146,99 +146,99 @@ public class MetadataTest {
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#Metadata()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#Metadata()}.
 	 */
 	@Test
 	public void testMetadata() {
-		Metadata xtr = new Metadata();
+		XTraceMetadata xtr = new XTraceMetadata();
 		assertNotNull(xtr);
-	    assertFalse(xtr.isValid());
-	    assertNotNull(xtr.getOpId());
-	    assertNull(xtr.getOptions());
+		assertFalse(xtr.isValid());
+		assertNotNull(xtr.getOpId());
+		assertNull(xtr.getOptions());
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#Metadata(edu.berkeley.xtrace.TaskID, byte[])}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#Metadata(edu.berkeley.xtrace.TaskID, byte[])}.
 	 */
 	@Test
 	public void testMetadataXtrTaskIDByteArray() {
 		// Test good cases
 		for (int i = 0; i < goodTasks.length; i++) {
 			for (int j = 0; j < goodOps.length; j++) {
-				Metadata md = new Metadata(goodTasks[i], goodOps[j]);
+				XTraceMetadata md = new XTraceMetadata(goodTasks[i], goodOps[j]);
 				assertNotNull(md);
 				assertTrue(md.isValid());
 			}
 		}
 
 		for (int i = 0; i < goodOps.length; i++) {
-			Metadata md = new Metadata(null, goodOps[i]);
+			XTraceMetadata md = new XTraceMetadata(null, goodOps[i]);
 			assertNotNull(md);
 			assertFalse(md.isValid());
 		}
 		
 		// opId is invalid
 		for (int i = 0; i < badOps.length; i++) {
-			Metadata md = new Metadata(goodTasks[0], badOps[i]);
+			XTraceMetadata md = new XTraceMetadata(goodTasks[0], badOps[i]);
 			assertNotNull(md);
 			assertFalse(md.isValid());
 		}
 		
 		// task is null
 		for (int i = 0; i < goodOps.length; i++) {
-			Metadata md = new Metadata(null, goodOps[i]);
+			XTraceMetadata md = new XTraceMetadata(null, goodOps[i]);
 			assertNotNull(md);
 			assertFalse(md.isValid());
 		}
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#Metadata(edu.berkeley.xtrace.TaskID, int)}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#Metadata(edu.berkeley.xtrace.TaskID, int)}.
 	 */
 	@Test
 	public void testMetadataXtrTaskIDInt() {
 		for (int i = 0; i < goodTasks.length; i++) {
 			for (int j = 0; j < BigStochasticTests; j++) {
-				Metadata md = new Metadata(goodTasks[i], rnd.nextInt());
+				XTraceMetadata md = new XTraceMetadata(goodTasks[i], rnd.nextInt());
 				assertNotNull(md);
 				assertTrue(md.isValid());
 			}
 		}
 		
 		for (int j = 0; j < SmallStochasticTests; j++) {
-			Metadata md = new Metadata(null, rnd.nextInt());
+			XTraceMetadata md = new XTraceMetadata(null, rnd.nextInt());
 			assertNotNull(md);
 			assertFalse(md.isValid());
 		}
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#Metadata(edu.berkeley.xtrace.TaskID, long)}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#Metadata(edu.berkeley.xtrace.TaskID, long)}.
 	 */
 	@Test
 	public void testMetadataXtrTaskIDLong() {
 		for (int i = 0; i < goodTasks.length; i++) {
 			for (int j = 0; j < BigStochasticTests; j++) {
-				Metadata md = new Metadata(goodTasks[i], rnd.nextLong());
+				XTraceMetadata md = new XTraceMetadata(goodTasks[i], rnd.nextLong());
 				assertNotNull(md);
 				assertTrue(md.isValid());
 			}
 		}
 		
 		for (int j = 0; j < SmallStochasticTests; j++) {
-			Metadata md = new Metadata(null, rnd.nextLong());
+			XTraceMetadata md = new XTraceMetadata(null, rnd.nextLong());
 			assertNotNull(md);
 			assertFalse(md.isValid());
 		}
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#createFromBytes(byte[], int, int)}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#createFromBytes(byte[], int, int)}.
 	 */
 	@Test
 	public void testCreateFromBytes() {
 		// Try all 4 x 2 good combinations
-		Metadata md = Metadata.createFromBytes(validBytes[0], 0, validBytes[0].length);
+		XTraceMetadata md = XTraceMetadata.createFromBytes(validBytes[0], 0, validBytes[0].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[0], 0, goodTaskBytes[0].length));
@@ -246,7 +246,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromBytes(validBytes[1], 0, validBytes[1].length);
+		md = XTraceMetadata.createFromBytes(validBytes[1], 0, validBytes[1].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(TaskID.createFromBytes(goodTaskBytes[0], 0, goodTaskBytes[0].length), md.getTaskId());
@@ -254,7 +254,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[3], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromBytes(validBytes[2], 0, validBytes[2].length);
+		md = XTraceMetadata.createFromBytes(validBytes[2], 0, validBytes[2].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[1], 0, goodTaskBytes[1].length));
@@ -262,7 +262,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromBytes(validBytes[3], 0, validBytes[3].length);
+		md = XTraceMetadata.createFromBytes(validBytes[3], 0, validBytes[3].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[1], 0, goodTaskBytes[1].length));
@@ -270,7 +270,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[3], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromBytes(validBytes[4], 0, validBytes[4].length);
+		md = XTraceMetadata.createFromBytes(validBytes[4], 0, validBytes[4].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[2], 0, goodTaskBytes[2].length));
@@ -278,7 +278,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromBytes(validBytes[5], 0, validBytes[5].length);
+		md = XTraceMetadata.createFromBytes(validBytes[5], 0, validBytes[5].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[2], 0, goodTaskBytes[2].length));
@@ -286,7 +286,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[3], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromBytes(validBytes[6], 0, validBytes[6].length);
+		md = XTraceMetadata.createFromBytes(validBytes[6], 0, validBytes[6].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[3], 0, goodTaskBytes[3].length));
@@ -294,7 +294,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromBytes(validBytes[7], 0, validBytes[7].length);
+		md = XTraceMetadata.createFromBytes(validBytes[7], 0, validBytes[7].length);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[3], 0, goodTaskBytes[3].length));
@@ -303,14 +303,14 @@ public class MetadataTest {
 		assertNull(md.getOptions());
 		
 		// null case
-		md = Metadata.createFromBytes(null, 0, 0);
+		md = XTraceMetadata.createFromBytes(null, 0, 0);
 		assertNotNull(md);
 		assertFalse(md.isValid());
 		assertNotNull(md.getTaskId());
 		
 		// various invalid byte arrays
 		for (int i = 0; i < invalidBytes.length; i++) {
-			md = Metadata.createFromBytes(invalidBytes[i], 0, invalidBytes[i].length);
+			md = XTraceMetadata.createFromBytes(invalidBytes[i], 0, invalidBytes[i].length);
 			assertNotNull(md);
 			assertFalse(md.isValid());
 			assertNotNull(md.getTaskId());
@@ -319,11 +319,11 @@ public class MetadataTest {
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#createFromString(java.lang.String)}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#createFromString(java.lang.String)}.
 	 */
 	@Test
 	public void testCreateFromString() {
-		Metadata md = Metadata.createFromString(validStrings[0]);
+		XTraceMetadata md = XTraceMetadata.createFromString(validStrings[0]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[0], 0, goodTaskBytes[0].length));
@@ -331,7 +331,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[1]);
+		md = XTraceMetadata.createFromString(validStrings[1]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(TaskID.createFromBytes(goodTaskBytes[0], 0, goodTaskBytes[0].length), md.getTaskId());
@@ -339,7 +339,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[3], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[2]);
+		md = XTraceMetadata.createFromString(validStrings[2]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[1], 0, goodTaskBytes[1].length));
@@ -347,7 +347,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[3]);
+		md = XTraceMetadata.createFromString(validStrings[3]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[1], 0, goodTaskBytes[1].length));
@@ -355,7 +355,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[3], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[4]);
+		md = XTraceMetadata.createFromString(validStrings[4]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[2], 0, goodTaskBytes[2].length));
@@ -363,7 +363,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[5]);
+		md = XTraceMetadata.createFromString(validStrings[5]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[2], 0, goodTaskBytes[2].length));
@@ -371,7 +371,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[3], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[6]);
+		md = XTraceMetadata.createFromString(validStrings[6]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[3], 0, goodTaskBytes[3].length));
@@ -379,7 +379,7 @@ public class MetadataTest {
 		assertArrayEquals(goodOps[1], md.getOpId());
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[7]);
+		md = XTraceMetadata.createFromString(validStrings[7]);
 		assertNotNull(md);
 		assertTrue(md.isValid());
 		assertEquals(md.getTaskId(), TaskID.createFromBytes(goodTaskBytes[3], 0, goodTaskBytes[3].length));
@@ -388,14 +388,14 @@ public class MetadataTest {
 		assertNull(md.getOptions());
 		
 		// null case
-		md = Metadata.createFromString(null);
+		md = XTraceMetadata.createFromString(null);
 		assertNotNull(md);
 		assertFalse(md.isValid());
 		assertNotNull(md.getTaskId());
 		
 		// various invalid byte arrays
 		for (int i = 0; i < invalidStrings.length; i++) {
-			md = Metadata.createFromString(invalidStrings[i]);
+			md = XTraceMetadata.createFromString(invalidStrings[i]);
 			assertNotNull(md);
 			assertFalse(md.isValid());
 			assertNotNull(md.getTaskId());
@@ -404,52 +404,52 @@ public class MetadataTest {
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#pack()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#pack()}.
 	 */
 	@Test
 	public void testPack() {
 		for (int i = 0; i < validBytes.length; i++) {
-			Metadata md = Metadata.createFromBytes(validBytes[i], 0, validBytes[i].length);
+			XTraceMetadata md = XTraceMetadata.createFromBytes(validBytes[i], 0, validBytes[i].length);
 			assertArrayEquals(validBytes[i], md.pack());
 		}
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#isValid()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#isValid()}.
 	 */
 	@Test
 	public void testIsValid() {
-		assertFalse((new Metadata()).isValid());
+		assertFalse((new XTraceMetadata()).isValid());
 		
 		for (int i = 0; i < validBytes.length; i++) {
-			Metadata md = Metadata.createFromBytes(validBytes[i], 0, validBytes[i].length);
+			XTraceMetadata md = XTraceMetadata.createFromBytes(validBytes[i], 0, validBytes[i].length);
 			assertTrue(md.isValid());
 		}
 		
 		for (int i = 0; i < invalidBytes.length; i++) {
-			Metadata md = Metadata.createFromBytes(invalidBytes[i], 0, invalidBytes[i].length);
+			XTraceMetadata md = XTraceMetadata.createFromBytes(invalidBytes[i], 0, invalidBytes[i].length);
 			assertFalse(md.isValid());
 		}
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#sizeAsBytes()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#sizeAsBytes()}.
 	 */
 	@Test
 	public void testSizeAsBytes() {
-		assertEquals(9, Metadata.createFromString(validStrings[0]).sizeAsBytes());
-		assertEquals(13, Metadata.createFromString(validStrings[1]).sizeAsBytes());
-		assertEquals(13, Metadata.createFromString(validStrings[2]).sizeAsBytes());
-		assertEquals(17, Metadata.createFromString(validStrings[3]).sizeAsBytes());
-		assertEquals(17, Metadata.createFromString(validStrings[4]).sizeAsBytes());
-		assertEquals(21, Metadata.createFromString(validStrings[5]).sizeAsBytes());
-		assertEquals(25, Metadata.createFromString(validStrings[6]).sizeAsBytes());
-		assertEquals(29, Metadata.createFromString(validStrings[7]).sizeAsBytes());
+		assertEquals(9, XTraceMetadata.createFromString(validStrings[0]).sizeAsBytes());
+		assertEquals(13, XTraceMetadata.createFromString(validStrings[1]).sizeAsBytes());
+		assertEquals(13, XTraceMetadata.createFromString(validStrings[2]).sizeAsBytes());
+		assertEquals(17, XTraceMetadata.createFromString(validStrings[3]).sizeAsBytes());
+		assertEquals(17, XTraceMetadata.createFromString(validStrings[4]).sizeAsBytes());
+		assertEquals(21, XTraceMetadata.createFromString(validStrings[5]).sizeAsBytes());
+		assertEquals(25, XTraceMetadata.createFromString(validStrings[6]).sizeAsBytes());
+		assertEquals(29, XTraceMetadata.createFromString(validStrings[7]).sizeAsBytes());
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#getOptions()}
-	 * and {@link edu.berkeley.xtrace.Metadata#addOption(edu.berkeley.xtrace.Option)}
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#getOptions()}
+	 * and {@link edu.berkeley.xtrace.XTraceMetadata#addOption(edu.berkeley.xtrace.OptionField)}
 	 */
 	@Test
 	public void testOptions() {
@@ -458,22 +458,22 @@ public class MetadataTest {
 		// the spec requires options to appear in the serialized
 		// String in the same order they were inserted...
 		
-		Metadata md = new Metadata();
+		XTraceMetadata md = new XTraceMetadata();
 		assertNull(md.getOptions());
 		
-		md = Metadata.createFromString(validStrings[0]);
+		md = XTraceMetadata.createFromString(validStrings[0]);
 		assertNull(md.getOptions());
 		assertEquals("10CAFEBABE01020304", md.toString());
 		
 		// Test composed insertions with null payloads
-		Option o = new Option((byte) 0, null);
+		OptionField o = new OptionField((byte) 0, null);
 		md.addOption(o);
 		assertNotNull(md.getOptions());
 		assertEquals(1, md.getOptions().length);
 		assertEquals(o, md.getOptions()[0]);
 		assertEquals("14CAFEBABE01020304020002", md.toString());
 		
-		Option o2 = new Option((byte) 1, null);
+		OptionField o2 = new OptionField((byte) 1, null);
 		md.addOption(o2);
 		assertNotNull(md.getOptions());
 		assertEquals(2, md.getOptions().length);
@@ -481,7 +481,7 @@ public class MetadataTest {
 		assertEquals(o2, md.getOptions()[1]);
 		assertEquals("14CAFEBABE010203040400020102", md.toString());
 		
-		Option o3 = new Option((byte) 2, null);
+		OptionField o3 = new OptionField((byte) 2, null);
 		md.addOption(o3);
 		assertNotNull(md.getOptions());
 		assertEquals(3, md.getOptions().length);
@@ -491,18 +491,18 @@ public class MetadataTest {
 		assertEquals("14CAFEBABE0102030406000201020202", md.toString());
 		
 		// Test composed insertions with non-null payloads
-		md = Metadata.createFromString(validStrings[0]);
+		md = XTraceMetadata.createFromString(validStrings[0]);
 		assertNull(md.getOptions());
 		assertEquals("10CAFEBABE01020304", md.toString());
 		
-		o = new Option((byte) 0, new byte[] {0x00, 0x01, 0x02, 0x03});
+		o = new OptionField((byte) 0, new byte[] {0x00, 0x01, 0x02, 0x03});
 		md.addOption(o);
 		assertNotNull(md.getOptions());
 		assertEquals(1, md.getOptions().length);
 		assertEquals(o, md.getOptions()[0]);
 		assertEquals("14CAFEBABE0102030406000600010203", md.toString());
 		
-		o2 = new Option((byte) 1, new byte[] {0x05, 0x06});
+		o2 = new OptionField((byte) 1, new byte[] {0x05, 0x06});
 		md.addOption(o2);
 		assertNotNull(md.getOptions());
 		assertEquals(2, md.getOptions().length);
@@ -510,7 +510,7 @@ public class MetadataTest {
 		assertEquals(o2, md.getOptions()[1]);
 		assertEquals("14CAFEBABE010203040A00060001020301040506", md.toString());
 		
-		o3 = new Option((byte) 2, new byte[] {0x07});
+		o3 = new OptionField((byte) 2, new byte[] {0x07});
 		md.addOption(o3);
 		assertNotNull(md.getOptions());
 		assertEquals(3, md.getOptions().length);
@@ -520,23 +520,23 @@ public class MetadataTest {
 		assertEquals("14CAFEBABE010203040D00060001020301040506020307", md.toString());
 		
 		// Test composed insertions with null and non-null payloads
-		md = Metadata.createFromString(validStrings[0]);
+		md = XTraceMetadata.createFromString(validStrings[0]);
 		assertNull(md.getOptions());
 		
-		o = new Option((byte) 0, new byte[] {0x00, 0x01, 0x02, 0x03});
+		o = new OptionField((byte) 0, new byte[] {0x00, 0x01, 0x02, 0x03});
 		md.addOption(o);
 		assertNotNull(md.getOptions());
 		assertEquals(1, md.getOptions().length);
 		assertEquals(o, md.getOptions()[0]);
 		
-		o2 = new Option((byte) 1, null);
+		o2 = new OptionField((byte) 1, null);
 		md.addOption(o2);
 		assertNotNull(md.getOptions());
 		assertEquals(2, md.getOptions().length);
 		assertEquals(o, md.getOptions()[0]);
 		assertEquals(o2, md.getOptions()[1]);
 		
-		o3 = new Option((byte) 2, new byte[] {0x07});
+		o3 = new OptionField((byte) 2, new byte[] {0x07});
 		md.addOption(o3);
 		assertNotNull(md.getOptions());
 		assertEquals(3, md.getOptions().length);
@@ -547,17 +547,17 @@ public class MetadataTest {
 
 	public void testOptionSerialization() {
 		for (int i = 0; i < goodOptions.length; i++) {
-			Option o = Option.createFromString(goodOptions[i]);
+			OptionField o = OptionField.createFromString(goodOptions[i]);
 			assertNotNull(o);
 			assertEquals(goodOptions[i], o.toString());
 		}
 		
-		Option o = new Option((byte) 0x01, null);
+		OptionField o = new OptionField((byte) 0x01, null);
 		assertNotNull(o);
 		assertEquals(0x01, o.getType());
 		assertNull(o.getPayload());
 		
-		o = new Option((byte) 0x02, new byte[] {0x00, 0x01, 0x02, 0x03});
+		o = new OptionField((byte) 0x02, new byte[] {0x00, 0x01, 0x02, 0x03});
 		assertNotNull(o);
 		assertEquals(0x02, o.getType());
 		assertNotNull(o.getPayload());
@@ -565,61 +565,61 @@ public class MetadataTest {
 	}
 	
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#getVersion()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#getVersion()}.
 	 */
 	@Test
 	public void testGetVersion() {
-		Metadata md = Metadata.createFromString(validStrings[0]);
+		XTraceMetadata md = XTraceMetadata.createFromString(validStrings[0]);
 		assertEquals(md.getVersion(), 1);
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#getTaskId()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#getTaskId()}.
 	 */
 	@Test
 	public void testGetTaskId() {
 		for (int i = 0; i < goodTasks.length; i++) {
-			Metadata md = new Metadata(goodTasks[i], 0);
+			XTraceMetadata md = new XTraceMetadata(goodTasks[i], 0);
 			assertEquals(goodTasks[i], md.getTaskId());
 		}
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#getOpIdLength()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#getOpIdLength()}.
 	 */
 	@Test
 	public void testGetOpIdLength() {
-		Metadata md = new Metadata(goodTasks[0], goodOps[0]);
+		XTraceMetadata md = new XTraceMetadata(goodTasks[0], goodOps[0]);
 		assertEquals(4, md.getOpIdLength());
-		md = new Metadata(goodTasks[0], goodOps[1]);
+		md = new XTraceMetadata(goodTasks[0], goodOps[1]);
 		assertEquals(4, md.getOpIdLength());
-		md = new Metadata(goodTasks[0], goodOps[2]);
+		md = new XTraceMetadata(goodTasks[0], goodOps[2]);
 		assertEquals(8, md.getOpIdLength());
-		md = new Metadata(goodTasks[0], goodOps[3]);
+		md = new XTraceMetadata(goodTasks[0], goodOps[3]);
 		assertEquals(8, md.getOpIdLength());
-		md = new Metadata();
+		md = new XTraceMetadata();
 		assertTrue(md.getOpIdLength() == 4 || md.getOpIdLength() == 8);
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#getOpId()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#getOpId()}.
 	 */
 	@Test
 	public void testGetOpId() {
 		for (int i = 0; i < goodOps.length; i++) {
-			Metadata md = new Metadata(goodTasks[0], goodOps[i]);
+			XTraceMetadata md = new XTraceMetadata(goodTasks[0], goodOps[i]);
 			assertNotNull(md.getOpId());
 			assertArrayEquals(goodOps[i], md.getOpId());
 		}
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#getOpIdString()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#getOpIdString()}.
 	 */
 	@Test
 	public void testGetOpIdString() {
 		for (int i = 0; i < goodOps.length; i++) {
-			Metadata md = new Metadata(goodTasks[0], goodOps[i]);
+			XTraceMetadata md = new XTraceMetadata(goodTasks[0], goodOps[i]);
 			assertNotNull(md.getOpId());
 			try {
 				assertEquals(IoUtil.bytesToString(goodOps[i]), md.getOpIdString());
@@ -630,13 +630,13 @@ public class MetadataTest {
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#setOpId(byte[])},
-	 * {@link edu.berkeley.xtrace.Metadata#setOpId(int)}, and
-	 * {@link edu.berkeley.xtrace.Metadata#setOpId(long)}
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#setOpId(byte[])},
+	 * {@link edu.berkeley.xtrace.XTraceMetadata#setOpId(int)}, and
+	 * {@link edu.berkeley.xtrace.XTraceMetadata#setOpId(long)}
 	 */
 	@Test
 	public void testSetOpId() {
-		Metadata md = new Metadata(goodTasks[0], goodOps[0]);
+		XTraceMetadata md = new XTraceMetadata(goodTasks[0], goodOps[0]);
 		assertEquals(goodOps[0], md.getOpId());
 		
 		md.setOpId(goodOps[1]);
@@ -655,31 +655,31 @@ public class MetadataTest {
 	}
 
 	/**
-	 * Test method for {@link edu.berkeley.xtrace.Metadata#toString()}.
+	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#toString()}.
 	 */
 	@Test
 	public void testToString() {
 		for (int i = 0; i < validStrings.length; i++) {
-			Metadata md = Metadata.createFromString(validStrings[i]);
+			XTraceMetadata md = XTraceMetadata.createFromString(validStrings[i]);
 			assertEquals(validStrings[i], md.toString());
 		}
 		
 		for (int i = 0; i < invalidStrings.length; i++) {
-			Metadata md = Metadata.createFromString(invalidStrings[i]);
-			assertEquals((new Metadata()).toString(), md.toString());
+			XTraceMetadata md = XTraceMetadata.createFromString(invalidStrings[i]);
+			assertEquals((new XTraceMetadata()).toString(), md.toString());
 		}
 	}
 	
 	@Test
 	public void testLegacyMetadata() {
-		// Let's see if the new Metadata class handles older metadata ok
+		// Let's see if the new XTraceMetadata class handles older metadata ok
 		String[] old = new String[3];
 		old[0] = "0000010203AABBCCDD";
 		old[1] = "010001020304050607AABBCCDD";
 		old[2] = "0000010203AABBCCDD0704070001020304";
 		
 		for (int i = 0; i < old.length; i++) {
-			Metadata m = Metadata.createFromString(old[i]);
+			XTraceMetadata m = XTraceMetadata.createFromString(old[i]);
 			assertNotNull(m);
 			assertTrue(m.isValid());
 		}

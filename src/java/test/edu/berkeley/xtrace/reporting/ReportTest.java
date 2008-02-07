@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.TaskID;
 
 public class ReportTest {
@@ -84,7 +84,7 @@ public class ReportTest {
 	@Test
 	public void testGetMetadata() {
 		TaskID task = new TaskID(8);
-		Metadata md = new Metadata(task, 0);
+		XTraceMetadata md = new XTraceMetadata(task, 0);
 		
 		Report r = new Report();
 		r.put("X-Trace", md.toString());
@@ -104,7 +104,7 @@ public class ReportTest {
 	@Test
 	public void testToString() {
 		Report r = new Report();
-		Metadata xtr = new Metadata();
+		XTraceMetadata xtr = new XTraceMetadata();
 		r.put("X-Trace", xtr.toString());
 		r.put("Key1", "Value1");
 		r.put("Key2", "Value2");

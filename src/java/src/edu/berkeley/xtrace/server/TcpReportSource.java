@@ -9,7 +9,7 @@ import java.util.concurrent.BlockingQueue;
 
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 
 /**
  * 
@@ -27,7 +27,7 @@ public class TcpReportSource implements ReportSource {
 
 	private ServerSocket serversock;
 
-	public void initialize() throws XtraceException {
+	public void initialize() throws XTraceException {
 		String tcpportstr = System.getProperty("xtrace.backend.tcpport", "7831");
 		try {
 			tcpport = Integer.parseInt(tcpportstr);
@@ -39,7 +39,7 @@ public class TcpReportSource implements ReportSource {
 		try {
 			serversock = new ServerSocket(tcpport);
 		} catch (IOException e) {
-			throw new XtraceException("Unable to open TCP server socket", e);
+			throw new XTraceException("Unable to open TCP server socket", e);
 		}
 	}
 

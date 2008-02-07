@@ -33,26 +33,26 @@ package edu.berkeley.xtrace;
  *
  */
 @SuppressWarnings("serial")
-public class XtraceException extends Exception {
+public class XTraceException extends Exception {
 
 	/**
 	 * 
 	 */
-	public XtraceException() {
+	public XTraceException() {
 		super();
 	}
 
 	/**
 	 * @param message
 	 */
-	public XtraceException(String message) {
+	public XTraceException(String message) {
 		super(message);
 	}
 
 	/**
 	 * @param cause
 	 */
-	public XtraceException(Throwable cause) {
+	public XTraceException(Throwable cause) {
 		super(cause);
 	}
 
@@ -60,7 +60,7 @@ public class XtraceException extends Exception {
 	 * @param message
 	 * @param cause
 	 */
-	public XtraceException(String message, Throwable cause) {
+	public XTraceException(String message, Throwable cause) {
 		super(message, cause);
 	}
 

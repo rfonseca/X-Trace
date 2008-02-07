@@ -47,23 +47,23 @@ import org.apache.log4j.Logger;
  * To change this behavior, specify a different IP address
  * and port number using the 'xtrace.udpdest' property:
  *     
- *    java -Dxtrace.reportctx="edu.berkeley.xtrace.reporting.UdpReportingContext"
+ *    java -Dxtrace.reporter="edu.berkeley.xtrace.reporting.UdpReporter"
  *         -Dxtrace.udpdest="localhost:7831"
  *
  * @author George Porter
  */
-public final class UdpReportingContext extends ReportingContext
+public final class UdpReporter extends Reporter
 {
-	private static final Logger LOG = Logger.getLogger(UdpReportingContext.class);
+	private static final Logger LOG = Logger.getLogger(UdpReporter.class);
 
 	/* Local report daemon state */
 	private DatagramSocket localSock;
 	private InetAddress localAddr;
 	private int localPort;
 	
-	UdpReportingContext()
+	UdpReporter()
 	{
-		LOG.info("Creating UdpReportingContext");
+		LOG.info("Creating UdpReporter");
 		
 		// Setup the local UDP socket
 		try {
@@ -106,7 +106,7 @@ public final class UdpReportingContext extends ReportingContext
 	}
 
 	/**
-	 * Closes this report context, releasing any resources
+	 * Closes this reporter, releasing any resources
 	 */
 	public synchronized void close()
 	{

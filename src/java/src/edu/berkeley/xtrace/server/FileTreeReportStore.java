@@ -53,9 +53,9 @@ import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.TaskID;
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 import edu.berkeley.xtrace.reporting.Report;
 
 public final class FileTreeReportStore implements QueryableReportStore {
@@ -84,19 +84,19 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	}
 	
 	@SuppressWarnings("serial")
-	public synchronized void initialize() throws XtraceException {
+	public synchronized void initialize() throws XTraceException {
 		// Directory to store reports into
 		dataDirName = System.getProperty("xtrace.server.storedirectory");
 		if (dataDirName == null) {
-			throw new XtraceException("FileTreeReportStore selected, but no xtrace.server.storedirectory specified");
+			throw new XTraceException("FileTreeReportStore selected, but no xtrace.server.storedirectory specified");
 		}
 		dataRootDir = new File(dataDirName);
 		
 		if (!dataRootDir.isDirectory()) {
-			throw new XtraceException("Data Store location isn't a directory: " + dataDirName);
+			throw new XTraceException("Data Store location isn't a directory: " + dataDirName);
 		}
 		if (!dataRootDir.canWrite()) {
-			throw new XtraceException("Can't write to data store directory");
+			throw new XTraceException("Can't write to data store directory");
 		}
 		
 		// 25-element LRU file handle cache.  The report data is stored here
@@ -108,23 +108,23 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		shouldOperate = true;
 	}
 	
-	private void initializeDatabase() throws XtraceException {
+	private void initializeDatabase() throws XTraceException {
 		// This embedded SQL database contains metadata about the reports
 		System.setProperty("derby.system.home", dataDirName);
 		try {
 			Class.forName("org.apache.derby.jdbc.EmbeddedDriver").newInstance();
 		} catch (InstantiationException e) {
-			throw new XtraceException("Unable to instantiate internal database", e);
+			throw new XTraceException("Unable to instantiate internal database", e);
 		} catch (IllegalAccessException e) {
-			throw new XtraceException("Unable to access internal database class", e);
+			throw new XTraceException("Unable to access internal database class", e);
 		} catch (ClassNotFoundException e) {
-			throw new XtraceException("Unable to locate internal database class", e);
+			throw new XTraceException("Unable to locate internal database class", e);
 		}
 		try {
 			conn = DriverManager.getConnection("jdbc:derby:tasks;create=true");
 			conn.setAutoCommit(false);
 		} catch (SQLException e) {
-			throw new XtraceException("Unable to connect to interal database: " + e.getSQLState(), e);
+			throw new XTraceException("Unable to connect to interal database: " + e.getSQLState(), e);
 		}
 		LOG.info("Successfully connected to the internal Derby database");
 		
@@ -160,7 +160,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			lastNtasks = conn.prepareStatement("select taskid from tasks order by lastUpdated desc");
 			gettagsps = conn.prepareStatement("select taskid from tasks where tags like '%'||?||'%'");
 		} catch (SQLException e) {
-			throw new XtraceException("Unable to setup prepared statement", e);
+			throw new XTraceException("Unable to setup prepared statement", e);
 		}
 		databaseInitialized = true;
 	}
@@ -191,7 +191,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		if (matcher.find()) {
 			Report r = Report.createFromString(msg);
 			String xtraceLine = matcher.group(1);
-			Metadata meta = Metadata.createFromString(xtraceLine);
+			XTraceMetadata meta = XTraceMetadata.createFromString(xtraceLine);
 			
 			if (meta.getTaskId() != null) {
 				TaskID task = meta.getTaskId();
@@ -397,7 +397,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 
 		@SuppressWarnings("serial")
 		public LRUFileHandleCache(int size, File dataRootDir) 
-		throws XtraceException {
+		throws XTraceException {
 			CACHE_SIZE = size;
 			lastSynched = System.currentTimeMillis();
 			this.dataRootDir = dataRootDir;

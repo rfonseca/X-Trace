@@ -37,9 +37,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.TaskID;
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 import edu.berkeley.xtrace.reporting.Report;
 
 /**
@@ -64,7 +64,7 @@ public final class DummyReportSource implements ReportSource {
 		this.updaterTask = new Timer("TaskUpdater");
 	}
 
-	public void initialize() throws XtraceException {
+	public void initialize() throws XTraceException {
 		TaskListUpdater updater = new TaskListUpdater();
 		updaterTask.scheduleAtFixedRate(updater, 0, 1000);
 		
@@ -132,7 +132,7 @@ public final class DummyReportSource implements ReportSource {
 			TaskID id = taskList.get()[rnd.nextInt(taskList.get().length)];
 			
 			Report r = new Report();
-			r.put("X-Trace", new Metadata(id, 0).toString());
+			r.put("X-Trace", new XTraceMetadata(id, 0).toString());
 			r.put("Time", (new Date().toString()));
 			r.put("Key1", "Value1");
 			r.put("Key2", "Value2");

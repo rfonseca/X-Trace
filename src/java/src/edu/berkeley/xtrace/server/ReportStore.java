@@ -30,7 +30,7 @@ package edu.berkeley.xtrace.server;
 
 import java.util.concurrent.BlockingQueue;
 
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 
 public interface ReportStore extends Runnable {
 	
@@ -47,9 +47,9 @@ public interface ReportStore extends Runnable {
 	 * Initializes this ReportStore.  This must be called before
 	 * starting and using the store.
 	 * 
-	 * @throws XtraceException if initialization fails
+	 * @throws XTraceException if initialization fails
 	 */
-	public void initialize() throws XtraceException;
+	public void initialize() throws XTraceException;
 	
 	/**
 	 * Commits any buffered reports to stable storage.

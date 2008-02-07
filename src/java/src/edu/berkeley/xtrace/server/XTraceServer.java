@@ -65,15 +65,15 @@ import org.mortbay.jetty.servlet.ServletHolder;
 import org.mortbay.servlet.CGI;
 
 import edu.berkeley.xtrace.TaskID;
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 import edu.berkeley.xtrace.reporting.Report;
 
 /**
  * @author George Porter
  *
  */
-public final class Main {
-	private static final Logger LOG = Logger.getLogger(Main.class);
+public final class XTraceServer {
+	private static final Logger LOG = Logger.getLogger(XTraceServer.class);
 
 	private static ReportSource[] sources;
 	
@@ -140,7 +140,7 @@ public final class Main {
 			sources[i].setReportQueue(incomingReportQueue);
 			try {
 				sources[i].initialize();
-			} catch (XtraceException e) {
+			} catch (XTraceException e) {
 				LOG.warn("Unable to initialize report source", e);
 				// TODO: gracefully shutdown any previously started threads?
 				System.exit(-1);
@@ -176,7 +176,7 @@ public final class Main {
 		reportstore.setReportQueue(reportsToStorageQueue);
 		try {
 			reportstore.initialize();
-		} catch (XtraceException e) {
+		} catch (XTraceException e) {
 			LOG.fatal("Unable to start report store", e);
 			System.exit(-1);
 		}
@@ -298,7 +298,7 @@ public final class Main {
         Iterator<Report> iter;
         try {
           iter = reportstore.getReportsByTask(TaskID.createFromString(taskId));
-        } catch (XtraceException e) {
+        } catch (XTraceException e) {
           throw new ServletException(e);
         }
         while (iter.hasNext()) {
@@ -328,7 +328,7 @@ public final class Main {
           out.write(r.toString());
           out.write("\n");
         }
-      } catch (XtraceException e) {
+      } catch (XTraceException e) {
         LOG.warn("Internal error", e);
         out.write("Internal error: " + e);
       }

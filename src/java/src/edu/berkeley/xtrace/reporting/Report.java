@@ -41,7 +41,7 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.XTraceMetadata;
 
 /**
  * An X-Trace report.
@@ -153,7 +153,7 @@ public class Report {
 	 * @return the metadata associated with this report, or null if there
 	 * is no such association.
 	 */
-	public Metadata getMetadata() {
+	public XTraceMetadata getMetadata() {
 		convertToMap();
 
 		List<String> xtrlist = map.get("X-Trace");
@@ -161,9 +161,9 @@ public class Report {
 			return null;
 
 		String xtrstr = xtrlist.iterator().next();
-		Metadata xtr = null;
+		XTraceMetadata xtr = null;
 		try {
-			xtr = Metadata.createFromString(xtrstr);
+			xtr = XTraceMetadata.createFromString(xtrstr);
 		} catch (Exception e) {
 			LOG.info("Corrupt metadata: " + xtrstr);
 			return null;

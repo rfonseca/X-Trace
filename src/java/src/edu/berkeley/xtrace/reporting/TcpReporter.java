@@ -39,20 +39,20 @@ import org.apache.log4j.Logger;
  * TCP host and port set via the xtrace.tcpdest system property. For example,
  * to send reports to reports.x-trace.net:7000, run your program with:
  * 
- *   java -Dxtrace.reportctx="edu.berkeley.xtrace.reporting.TcpReportingContext" \
+ *   java -Dxtrace.reporter="edu.berkeley.xtrace.reporting.TcpReporter" \
  *        -Dxtrace.tcpdest="reports.x-trace.net:7000"
  *
  * @author Matei Zaharia
  */
-public final class TcpReportingContext extends ReportingContext
+public final class TcpReporter extends Reporter
 {
-	private static final Logger LOG = Logger.getLogger(TcpReportingContext.class);
+	private static final Logger LOG = Logger.getLogger(TcpReporter.class);
 	
 	// Connection to server or frontend daemon.
 	private Socket socket;
 	private DataOutputStream out;
 	
-	TcpReportingContext()
+	TcpReporter()
 	{
 		LOG.info("Creating TcpReportingContext");
 		
@@ -92,12 +92,12 @@ public final class TcpReportingContext extends ReportingContext
 	}
 
 	/**
-	 * Closes this report context, releasing any resources
+	 * Closes this reporter, releasing any resources
 	 */
 	public synchronized void close()
 	{
 		if (socket != null) {
-			LOG.info("Closing TcpReportingContext");
+			LOG.info("Closing TcpReporter");
 			try {
 				out.flush();
 				socket.close();
@@ -109,7 +109,7 @@ public final class TcpReportingContext extends ReportingContext
 	public synchronized void flush() {
 		super.flush();
 		if (socket != null) {
-			LOG.info("Flushing TcpReportingContext");
+			LOG.info("Flushing TcpReporter");
 			try {
 				out.flush();
 			} catch (IOException e) {;}

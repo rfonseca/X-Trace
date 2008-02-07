@@ -20,9 +20,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.TaskID;
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 import edu.berkeley.xtrace.reporting.Report;
 
 public class FileTreeReportStoreTest {
@@ -60,13 +60,13 @@ public class FileTreeReportStoreTest {
 	}
 	
 	@Test
-	public void testSimpleInsertion() throws XtraceException {
+	public void testSimpleInsertion() throws XTraceException {
 		if (!canTest) return;
 		
 		long startTime = System.currentTimeMillis();
 		
 		/* Insert a single report into the file store */
-		Metadata md = new Metadata(new TaskID(8), 0);
+		XTraceMetadata md = new XTraceMetadata(new TaskID(8), 0);
 		Report report = randomReport(md);
 		fs.receiveReport(report.toString());
 		
@@ -94,7 +94,7 @@ public class FileTreeReportStoreTest {
 	}
 	
 	@Test
-	public void testMultipleInsertion() throws XtraceException {
+	public void testMultipleInsertion() throws XTraceException {
 		if (!canTest) return;
 		
 		final int TOTAL_REPORTS = NUM_STOCHASTIC_TASKS * NUM_STOCHASTIC_REPORTS_PER_TASK;
@@ -110,12 +110,12 @@ public class FileTreeReportStoreTest {
 		}
 		
 		/* Create a set of reports */
-		Metadata[] mds = new Metadata[TOTAL_REPORTS];
+		XTraceMetadata[] mds = new XTraceMetadata[TOTAL_REPORTS];
 		Report[] reports = new Report[TOTAL_REPORTS];
 		for (int i = 0; i < taskIds.length; i++) {
 			for (int j = 0; j < NUM_STOCHASTIC_REPORTS_PER_TASK; j++) {
 				int idx = i*NUM_STOCHASTIC_REPORTS_PER_TASK + j;
-				mds[idx] = new Metadata(taskIds[i], r.nextInt());
+				mds[idx] = new XTraceMetadata(taskIds[i], r.nextInt());
 				reports[idx] = randomReport(mds[idx]);
 				fs.receiveReport(reports[idx].toString());
 			}
@@ -170,7 +170,7 @@ public class FileTreeReportStoreTest {
 		/* Test if an insertion updates the time */
 		long startTime = System.currentTimeMillis();
 		
-		Metadata md = new Metadata(new TaskID(8), 0);
+		XTraceMetadata md = new XTraceMetadata(new TaskID(8), 0);
 		Report report = randomReport(md);
 		fs.receiveReport(report.toString());
 		
@@ -180,7 +180,7 @@ public class FileTreeReportStoreTest {
 		long afterFirstInsertion = fs.lastUpdatedByTaskId(md.getTaskId());
 		assertTrue(afterFirstInsertion > startTime);
 		
-		md = new Metadata(new TaskID(8), 0);
+		md = new XTraceMetadata(new TaskID(8), 0);
 		report = randomReport(md);
 		fs.receiveReport(report.toString());
 		
@@ -198,7 +198,7 @@ public class FileTreeReportStoreTest {
 		/* Create a set of reports */
 		Report[] reports = new Report[10];
 		for (int i = 0; i < reports.length; i++) {
-			reports[i] = randomReport(new Metadata(new TaskID(8), r.nextInt()));
+			reports[i] = randomReport(new XTraceMetadata(new TaskID(8), r.nextInt()));
 			fs.receiveReport(reports[i].toString());
 			try {
 				Thread.sleep(25);
@@ -226,7 +226,7 @@ public class FileTreeReportStoreTest {
 		/* Create a set of reports */
 		Report[] reports = new Report[10];
 		for (int i = 0; i < reports.length; i++) {
-			reports[i] = randomReport(new Metadata(new TaskID(8), r.nextInt()));
+			reports[i] = randomReport(new XTraceMetadata(new TaskID(8), r.nextInt()));
 		}
 		reports[2].put("Tag", "tag1");
 		reports[4].put("Tag", "tag2");
@@ -297,7 +297,7 @@ public class FileTreeReportStoreTest {
         return dir.delete();
     }
     
-    private Report randomReport(Metadata md) {
+    private Report randomReport(XTraceMetadata md) {
 		Report report = new Report();
 		report.put("X-Trace", md.toString());
 		

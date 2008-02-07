@@ -33,7 +33,7 @@ import java.util.concurrent.BlockingQueue;
 
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 
 /**
  * @author George Porter
@@ -43,16 +43,16 @@ public class NullReportStore implements ReportStore {
 	private static final Logger LOG = Logger.getLogger(NullReportStore.class);
 	private BlockingQueue<String> q;
 
-	public Iterator<String> getByTask(String task) throws XtraceException {
+	public Iterator<String> getByTask(String task) throws XTraceException {
 		return null;
 	}
 
 	public Iterator<String> getTasksSince(Long startTime)
-			throws XtraceException {
+			throws XTraceException {
 		return null;
 	}
 
-	public void initialize() throws XtraceException {
+	public void initialize() throws XTraceException {
 		LOG.info("NullReportStore initialized");
 	}
 

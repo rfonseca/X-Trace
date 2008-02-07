@@ -42,28 +42,28 @@ import org.apache.log4j.Logger;
  *
  * @author George Porter
  */
-public abstract class ReportingContext
+public abstract class Reporter
 {
-	private static final Logger LOG = Logger.getLogger(ReportingContext.class);
+	private static final Logger LOG = Logger.getLogger(Reporter.class);
 
-	static ReportingContext rptCtx;
+	static Reporter rptCtx;
 
 	/**
-	 * Retrieve a handle to the report context.  Once a report context
+	 * Retrieve a handle to the reporter.  Once a reporter
 	 * is created, this operation is very cheap.
 	 * 
-	 * @return a handle to a report context (creating one if necessary)
+	 * @return a handle to a reporter (creating one if necessary)
 	 */
-	public final static synchronized ReportingContext getReportCtx() {
+	public final static synchronized Reporter getReporter() {
 		if (rptCtx == null) {
-			String systemprop = System.getProperty("xtrace.reportctx");
+			String systemprop = System.getProperty("xtrace.reporter");
 
 			if (systemprop == null) {
-				systemprop = "edu.berkeley.xtrace.reporting.UdpReportingContext";
+				systemprop = "edu.berkeley.xtrace.reporting.UdpReporter";
 			}
 
 			try {
-				rptCtx = (ReportingContext) (Class.forName(systemprop)).newInstance();
+				rptCtx = (Reporter) (Class.forName(systemprop)).newInstance();
 				
 			} catch (InstantiationException e) {
 				LOG.warn("Unable to instantiate reporting class: " + systemprop, e);
@@ -98,7 +98,7 @@ public abstract class ReportingContext
 	public abstract void sendReport(Report r);
 
 	/**
-	 * Closes this report context, releasing any resources
+	 * Closes this reporter, releasing any resources
 	 */
 	public abstract void close();
 

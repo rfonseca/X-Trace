@@ -33,7 +33,7 @@ package edu.berkeley.xtrace.reporting;
  * @author George Porter
  *
  */
-public final class NullReportingContext extends ReportingContext {
+public final class NullReporter extends Reporter {
 
 	@Override
 	public synchronized void close() {

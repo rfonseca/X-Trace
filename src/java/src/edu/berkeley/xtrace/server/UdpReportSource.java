@@ -11,7 +11,7 @@ import java.util.concurrent.BlockingQueue;
 
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 
 public class UdpReportSource implements ReportSource {
 	private static final Logger LOG = Logger.getLogger(UdpReportSource.class);
@@ -19,7 +19,7 @@ public class UdpReportSource implements ReportSource {
 	private BlockingQueue<String> q;
 	private DatagramSocket socket;
 
-	public void initialize() throws XtraceException {
+	public void initialize() throws XTraceException {
 		
 		String udpSource = System.getProperty("xtrace.udpsource", "127.0.0.1:7831");
 		
@@ -27,13 +27,13 @@ public class UdpReportSource implements ReportSource {
 		try {
 			localAddr = InetAddress.getByName(udpSource.split(":")[0]);
 		} catch (UnknownHostException e) {
-			throw new XtraceException("Unknown host: " + udpSource.split(":")[0], e);
+			throw new XTraceException("Unknown host: " + udpSource.split(":")[0], e);
 		}
 		int localPort = Integer.parseInt(udpSource.split(":")[1]);
 		try {
 			socket = new DatagramSocket(localPort, localAddr);
 		} catch (SocketException e) {
-			throw new XtraceException("Unable to open socket", e);
+			throw new XTraceException("Unable to open socket", e);
 		}
 
 		LOG.info("UDPReportSource initialized on " + localAddr + ":" + localPort);

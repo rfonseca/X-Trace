@@ -28,6 +28,7 @@
 package edu.berkeley.xtrace;
 
 import java.io.IOException;
+import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import org.apache.log4j.Logger;
@@ -133,5 +134,11 @@ public final class IoUtil
          s = bytesToString(b);
       } catch (IOException e) { } // exception can't happen
       return s;
+   }
+
+	 private static final Pattern NEWLINES = Pattern.compile("[\r\n]+");
+	 
+   public static String escapeNewlines(String str) {
+  	 return NEWLINES.matcher(str).replaceAll("\\\\n");
    }
 }

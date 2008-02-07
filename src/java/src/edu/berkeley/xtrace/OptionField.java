@@ -34,14 +34,14 @@ import org.apache.log4j.Logger;
 
 
 /**
- * An X-trace Option.  Options are designed to support extensions
+ * An X-trace option field.  Options are designed to support extensions
  * to the X-Trace metadata, and should be passed during propagation
  * operations.
  * 
  * @author George Porter
  */
-public class Option {
-	private static final Logger LOG = Logger.getLogger(Option.class);
+public class OptionField {
+	private static final Logger LOG = Logger.getLogger(OptionField.class);
 	
 	private final byte type;
 	private final byte[] payload;
@@ -49,12 +49,12 @@ public class Option {
 	/**
 	 * Create an 'nop' X-Trace Option
 	 */
-	private Option() {
+	private OptionField() {
 		this.type = 0;
 		this.payload = null;
 	}
 	
-	private Option(byte type, byte[] payloadbytes, int payloadoffset, int payloadlength) {
+	private OptionField(byte type, byte[] payloadbytes, int payloadoffset, int payloadlength) {
 		if (payloadlength > 256) {
 			LOG.warn("Option payloads cannot exceed 256 bytes");
 			this.type = 0;
@@ -70,7 +70,7 @@ public class Option {
 		}
 	}
 	
-	public Option(byte type, byte[] payload) {
+	public OptionField(byte type, byte[] payload) {
 		this.type = type;
 		if (payload != null) {
 			this.payload = new byte[payload.length];
@@ -80,33 +80,33 @@ public class Option {
 		}
 	}
 	
-	public static Option createFromBytes(byte[] bytes, int offset, int length) {
+	public static OptionField createFromBytes(byte[] bytes, int offset, int length) {
 		if (bytes == null) {
 			LOG.warn("'bytes' cannot be null");
-			return new Option();
+			return new OptionField();
 		}
 		
 		if (bytes.length - offset < length) {
 			LOG.warn("'length' field too large for the bytes provided");
-			return new Option();
+			return new OptionField();
 		}
 		
 		if (length > 258) {
 			LOG.warn("Length of Option payload cannot exceed 256 bytes");
-			return new Option();
+			return new OptionField();
 		}
 		
-		return new Option(bytes[offset], bytes, offset+2, length - offset - 2);
+		return new OptionField(bytes[offset], bytes, offset+2, length - offset - 2);
 	}
 	
-	public static Option createFromString(String s) {
+	public static OptionField createFromString(String s) {
 		byte[] bytes = null;
 		
 		try {
 			bytes = IoUtil.stringToBytes(s);
 		} catch (IOException e) {
 			LOG.warn("Invalid String: " + s);
-			return new Option();
+			return new OptionField();
 		}
 		
 		return createFromBytes(bytes, 0, bytes.length);
@@ -168,7 +168,7 @@ public class Option {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		final Option other = (Option) obj;
+		final OptionField other = (OptionField) obj;
 		if (!Arrays.equals(payload, other.payload))
 			return false;
 		if (type != other.type)

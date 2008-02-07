@@ -34,7 +34,7 @@ import java.util.concurrent.CyclicBarrier;
 import org.apache.log4j.Logger;
 import org.junit.Test;
 
-import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.TaskID;
 
 public final class ReportLoadTest {
@@ -127,7 +127,7 @@ public final class ReportLoadTest {
 		}
 		
 		public void run() {
-			ReportingContext c = ReportingContext.getReportCtx();
+			Reporter c = Reporter.getReporter();
 			
 			try {
 				barrier.await();
@@ -153,7 +153,7 @@ public final class ReportLoadTest {
 			}
 			report.put("Timestamp", ""+System.currentTimeMillis());
 			report.put("Sequence", ""+numSent++);
-			report.put("X-Trace", new Metadata(task, r.nextInt()).toString());
+			report.put("X-Trace", new XTraceMetadata(task, r.nextInt()).toString());
 			if(numSent == 1) {
 				report.put("Tag", "loadtest");
 			}

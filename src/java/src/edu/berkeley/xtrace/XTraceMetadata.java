@@ -36,25 +36,31 @@ import java.util.Arrays;
 import org.apache.log4j.Logger;
 
 /**
- * X-trace metadata.
+ * A tracing context, containing the X-Trace metadata that is propagated along
+ * a computation chain. This consists of three parts: a TaskID that is common
+ * for the task (see {@link TaskID}), an OpID that is the ID of an event in the
+ * computation chain, and a set of options (see {@link OptionField}). This
+ * XTraceMetadata object must be passed from host to host and thread to thread
+ * to capture chains of computation. The {@link XTrace} class contains static
+ * utility functions for maintaining a per-thread context. 
  * 
  * @author George Porter
  */
-public final class Metadata {
-	private static final Logger LOG = Logger.getLogger(Metadata.class);
+public final class XTraceMetadata {
+	private static final Logger LOG = Logger.getLogger(XTraceMetadata.class);
 
 	private static final byte[] INVALID_ID = { 0x00, 0x00, 0x00, 0x00 };
 	private static final byte MetadataVersion = 1;
 	
 	private final TaskID taskid;
 	private byte[] opId;
-	private Option[] options;
+	private OptionField[] options;
 	private int numOptions;
 	
 	/**
-	 * The default constructor produces an invalid Metadata object
+	 * The default constructor produces an invalid XTraceMetadata object
 	 */
-	public Metadata() {
+	public XTraceMetadata() {
 		taskid = TaskID.createFromBytes(INVALID_ID, 0, INVALID_ID.length);
 		opId = new byte[] {0x00, 0x00, 0x00, 0x00};
 		options = null;
@@ -69,7 +75,7 @@ public final class Metadata {
 	 * @param op
 	 *            a 4 or 8-byte operation Id
 	 */
-	public Metadata(TaskID id, byte[] op) {
+	public XTraceMetadata(TaskID id, byte[] op) {
 		if (id != null && op != null && (op.length == 4 || op.length == 8)) {
 			taskid = id;
 			opId = op;
@@ -94,7 +100,7 @@ public final class Metadata {
 	 * @param opId
 	 *            a 4-byte operation Id
 	 */
-	public Metadata(final TaskID id, final int opId) {
+	public XTraceMetadata(final TaskID id, final int opId) {
 		if (id != null) {
 			taskid = id;
 			this.opId = ByteBuffer.allocate(4).putInt(opId).array();
@@ -115,7 +121,7 @@ public final class Metadata {
 	 * @param opId
 	 *            an 8-byte operation Id
 	 */
-	public Metadata(final TaskID id, final long opId) {
+	public XTraceMetadata(final TaskID id, final long opId) {
 		if (id != null) {
 			taskid = id;
 			this.opId = ByteBuffer.allocate(8).putLong(opId).array();
@@ -133,7 +139,7 @@ public final class Metadata {
 	 * 
 	 * @param xtr
 	 */
-	public Metadata(Metadata xtr) {
+	public XTraceMetadata(XTraceMetadata xtr) {
 		// TaskID
 		this.taskid = new TaskID(xtr.taskid);
 		
@@ -143,7 +149,7 @@ public final class Metadata {
 		
 		// Options
 		this.numOptions = xtr.numOptions;
-		this.options = new Option[xtr.numOptions];
+		this.options = new OptionField[xtr.numOptions];
 		for (int i = 0; i < xtr.numOptions; i++) {
 			this.options[i] = xtr.options[i];
 		}
@@ -160,31 +166,31 @@ public final class Metadata {
 	 *            the length of bytes to read from the array
 	 * @return a new <code>XtrMetadata</code> object based on the given byte
 	 *         array
-	 * @throws XtraceException
+	 * @throws XTraceException
 	 *             if the given bytes are invalid (do not follow the X-Trace
 	 *             specification
 	 */
-	public static Metadata createFromBytes(final byte[] bytes,
+	public static XTraceMetadata createFromBytes(final byte[] bytes,
 			final int offset, final int length) {
 
 		if (bytes == null) {
 			LOG.warn("'bytes' was null");
-			return new Metadata();
+			return new XTraceMetadata();
 		}
 		
 		if (offset < 0) {
 			LOG.warn("Invalid 'offset' argument: " + offset);
-			return new Metadata();
+			return new XTraceMetadata();
 		}
 		
 		if (length < 9) {
-			LOG.warn("Metadata length too short: " + length);
-			return new Metadata();
+			LOG.warn("XTraceMetadata length too short: " + length);
+			return new XTraceMetadata();
 		}
 		
 		if (bytes.length - offset < length) {
 			LOG.warn("Fewer than 'length' bytes given to constructor");
-			return new Metadata();
+			return new XTraceMetadata();
 		}
 		
 		// Task ID length
@@ -217,7 +223,7 @@ public final class Metadata {
 		// Make sure the flags don't imply a length that is too long
 		if (taskIdLength + opIdLength > length) {
 			LOG.warn("TaskID length plus OpId length is longer than total length");
-			return new Metadata();
+			return new XTraceMetadata();
 		}
 		
 		// Create the TaskID and opId fields
@@ -225,7 +231,7 @@ public final class Metadata {
 		byte[] opIdBytes = new byte[opIdLength];
 		System.arraycopy(bytes, 1+taskIdLength, opIdBytes, 0, opIdLength);
 		
-		Metadata md = new Metadata(taskid, opIdBytes);
+		XTraceMetadata md = new XTraceMetadata(taskid, opIdBytes);
 		
 		// If no options, we're done
 		if ( (bytes[0] & 0x04) == 0 ) {
@@ -235,7 +241,7 @@ public final class Metadata {
 		// Otherwise, read in the total option length
 		if (length <= 1 + taskIdLength + opIdLength) {
 			LOG.warn("Options present in flags byte, but no total option length given");
-			return new Metadata();
+			return new XTraceMetadata();
 		}
 		int totOptLen = bytes[1 + taskIdLength + opIdLength];
 		int optPtr = offset + 1 + taskIdLength + opIdLength + 1;
@@ -248,11 +254,11 @@ public final class Metadata {
 				break;
 			}
 			
-			Option o;
+			OptionField o;
 			if (len > 0) {
-				o = Option.createFromBytes(bytes, optPtr, len);
+				o = OptionField.createFromBytes(bytes, optPtr, len);
 			} else {
-				o = new Option(type, null);
+				o = new OptionField(type, null);
 			}
 			md.addOption(o);
 			
@@ -271,11 +277,11 @@ public final class Metadata {
 	 *            the String that represents the metadata
 	 * @return a new <code>XtrMetadata</code> object based on the given String
 	 */
-	public static Metadata createFromString(final String str) {
+	public static XTraceMetadata createFromString(final String str) {
 		
 		if (str == null) {
 			LOG.warn("null String passed to createFromString");
-			return new Metadata();
+			return new XTraceMetadata();
 		}
 		
 		byte[] bytes;
@@ -283,7 +289,7 @@ public final class Metadata {
 			bytes = IoUtil.stringToBytes(str);
 		} catch (IOException e) {
 			LOG.warn("Invalid X-Trace metadata string: " + str);
-			return new Metadata();
+			return new XTraceMetadata();
 		}
 		return createFromBytes(bytes, 0, bytes.length);
 	}
@@ -348,7 +354,7 @@ public final class Metadata {
 
 		/* Options */
 		if (getOptions() != null) {
-			Option[] opts = getOptions();
+			OptionField[] opts = getOptions();
 			int optLenPosition = buf.position();
 			byte totalOptLength = 0;
 
@@ -358,7 +364,7 @@ public final class Metadata {
 
 			/* Options */
 			for (int i = 0; opts != null && i < opts.length; i++) {
-				Option opt = opts[i];
+				OptionField opt = opts[i];
 			    byte[] optBytes = opt.pack();
 				totalOptLength += optBytes.length;
 				buf.put(optBytes);
@@ -404,7 +410,7 @@ public final class Metadata {
 	 * 
 	 * @return an Iterator representing the set of any X-Trace options present
 	 */
-	public Option[] getOptions() {
+	public OptionField[] getOptions() {
 		if (numOptions > 0) {
 			return options;
 		} else {
@@ -418,17 +424,17 @@ public final class Metadata {
 	 * @param option
 	 *            the option to add to this metadata object
 	 */
-	public void addOption(final Option option) {
+	public void addOption(final OptionField option) {
 		
 		// We could do a dynamically resizable array here where the size
 		// doubles each time it fills up, leading to a constant
 		// time amortized insertion.  However, that is probably overkill
 		
 		if (numOptions == 0) {
-			options = new Option[1];
+			options = new OptionField[1];
 		} else if (numOptions == options.length) {
-			Option[] tmp = options;
-			options = new Option[options.length + 1];
+			OptionField[] tmp = options;
+			options = new OptionField[options.length + 1];
 			System.arraycopy(tmp, 0, options, 0, tmp.length);
 		}
 		options[numOptions++] = option;
@@ -561,7 +567,7 @@ public final class Metadata {
 	 * @throws IOException if an XtrMetadata object as formatted by
 	 *                     {@link #write(DataOutput)} cannot be read
 	 */
-	public static Metadata createFromDataInput(DataInput in)
+	public static XTraceMetadata createFromDataInput(DataInput in)
 			throws IOException {
 		int length = in.readInt();
 		if (length <= 0 || length > 4096) {
@@ -597,7 +603,7 @@ public final class Metadata {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		final Metadata other = (Metadata) obj;
+		final XTraceMetadata other = (XTraceMetadata) obj;
 		if (numOptions != other.numOptions)
 			return false;
 		if (!Arrays.equals(opId, other.opId))

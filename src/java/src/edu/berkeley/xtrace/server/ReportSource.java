@@ -30,12 +30,12 @@ package edu.berkeley.xtrace.server;
 
 import java.util.concurrent.BlockingQueue;
 
-import edu.berkeley.xtrace.XtraceException;
+import edu.berkeley.xtrace.XTraceException;
 
 public interface ReportSource extends Runnable {
 	
 	public void setReportQueue(BlockingQueue<String> q);
 	
-	public void initialize() throws XtraceException;
+	public void initialize() throws XTraceException;
 	public void shutdown();
 }

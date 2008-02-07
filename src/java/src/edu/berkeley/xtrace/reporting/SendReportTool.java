@@ -35,29 +35,29 @@ import java.util.Random;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.Metadata;
+import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.TaskID;
 
 /**
  * This tool can be used to send reports from the command line directly to
  * the reporting infrastructure.  Its usage is:
  * <p>
- * CmdLineReporter key1 value1 ?key2 value2? ?key3 value3?
+ * SendReportTool key1 value1 ?key2 value2? ?key3 value3?
  * <p>
  * or,
  * <p>
- * CmdLineReporter -file filename
+ * SendReportTool -file filename
  * <p>
  * where <code>filename</code> contains a valid X-Trace report.
  * 
- * You can also select which instance of the report context to use
- * by specifying the -Dxtrace.reportctx=edu.berkeley.reporting.classname
+ * You can also select which instance of the reporter to use
+ * by specifying the -Dxtrace.reporter=edu.berkeley.reporting.classname
  * 
  * @author George Porter <gporter@cs.berkeley.edu>
  *
  */
-public final class CmdLineReporter {
-	private static final Logger LOG = Logger.getLogger(CmdLineReporter.class);
+public final class SendReportTool {
+	private static final Logger LOG = Logger.getLogger(SendReportTool.class);
 	private static Random r;
 
 	public static void main(String[] args) {
@@ -90,7 +90,7 @@ public final class CmdLineReporter {
 	}
 	
 	private static void reportArgs(String[] args) {
-		ReportingContext ctx = ReportingContext.getReportCtx();
+		Reporter ctx = Reporter.getReporter();
 		Report rpt = new Report();
 		
 		for (int i = 0; i < args.length; i += 2) {
@@ -103,7 +103,7 @@ public final class CmdLineReporter {
 	}
 	
 	private static void reportRandom() {
-		ReportingContext ctx = ReportingContext.getReportCtx();
+		Reporter ctx = Reporter.getReporter();
 		Report rpt = randomReport(new TaskID(8));
 		LOG.info("Sending the report:\n" + rpt);
 		ctx.sendReport(rpt);
@@ -111,7 +111,7 @@ public final class CmdLineReporter {
 	}
 
 	private static void reportFile(String f) {
-		ReportingContext ctx = ReportingContext.getReportCtx();
+		Reporter ctx = Reporter.getReporter();
 		FileInputStream fin;
 		try {
 			fin = new FileInputStream(f);
@@ -181,7 +181,7 @@ public final class CmdLineReporter {
 			report.put("Key"+i, randomString(10 + r.nextInt(20)));
 		}
 		
-		report.put("X-Trace", new Metadata(task, r.nextInt()).toString());
+		report.put("X-Trace", new XTraceMetadata(task, r.nextInt()).toString());
 		return report;
 	}
 	

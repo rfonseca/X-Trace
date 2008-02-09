@@ -1,9 +1,11 @@
 [
 #foreach($task in $tasks)
   {
-    "taskid": "$task.taskId", 
-    "date": "$dateFormat.format($task.date)",
-    "reportcount": "$task.reportCount"
+    "taskId": "$task.taskId", 
+    "title": "$task.title", 
+    "firstSeen": "$dateFormat.format($task.firstSeen)",
+    "lastUpdated": "$dateFormat.format($task.lastUpdated)",
+    "numReports": "$task.numReports"
   }
 #end
 ]

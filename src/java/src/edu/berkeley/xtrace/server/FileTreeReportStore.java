@@ -43,10 +43,16 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -70,9 +76,11 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	private BlockingQueue<String> incomingReports;
 	private LRUFileHandleCache fileCache;
 	private Connection conn;
-	private PreparedStatement querytestps, insertps, updateps, updatedSincePs, numByTask;
-	private PreparedStatement totalNumReports, totalNumTasks, lastUpdatedByTask, lastNtasks;
-	private PreparedStatement gettagsps;
+	private PreparedStatement countTasks, insert, update, updateTitle, 
+														updateTags, updatedSince, numByTask, 
+														getByTag, totalNumReports, totalNumTasks,
+														lastUpdatedByTask, lastTasks, getTags,
+														getByTitle, getByTitleApprox;
 	private boolean shouldOperate = false;
 	private boolean databaseInitialized = false;
 
@@ -121,48 +129,63 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			throw new XTraceException("Unable to locate internal database class", e);
 		}
 		try {
-			conn = DriverManager.getConnection("jdbc:derby:tasks;create=true");
+			try {
+				// Connect to existing DB
+				conn = DriverManager.getConnection("jdbc:derby:tasks");
+			} catch(SQLException e) {
+				// DB does not exist - create it
+				conn = DriverManager.getConnection("jdbc:derby:tasks;create=true");
+				createTables();
+				conn.commit();
+			}
 			conn.setAutoCommit(false);
 		} catch (SQLException e) {
 			throw new XTraceException("Unable to connect to interal database: " + e.getSQLState(), e);
 		}
 		LOG.info("Successfully connected to the internal Derby database");
 		
-		// Create the table(s) if necessary.
 		try {
-			Statement s = conn.createStatement();
-			s.executeUpdate("create table tasks(taskid varchar(40) not null primary key, " +
-					"firstSeen timestamp default current_timestamp not null, " +
-					"lastUpdated timestamp default current_timestamp not null, " +
-					"numreports integer default 1 not null, " +
-					"tags varchar(512), " +
-					"title varchar(128))");
-			s.executeUpdate("create index idx_tasks on tasks(taskid)");
-			s.executeUpdate("create index idx_firstseen on tasks(firstSeen)");
-			s.executeUpdate("create index idx_lastUpdated on tasks(lastUpdated)");
-			s.executeUpdate("create index idx_tags on tasks(tags)");
-			s.executeUpdate("create index idx_title on tasks(title)");
-			s.close();
-			conn.commit();
-		} catch (SQLException e) { }
-		
-		try {
-			querytestps = conn.prepareStatement("select count(taskid) as rowcount from tasks where taskid = ?");
-			insertps = conn.prepareStatement("insert into tasks (taskid, tags) values (?, ?)");
-			updateps = conn.prepareStatement("update tasks set lastUpdated = current_timestamp, " +
-					"numreports = numreports + 1, " +
-					"tags = tags || ? where taskid = ?");
-			updatedSincePs = conn.prepareStatement("select taskid from tasks where firstseen >= ?");
-			numByTask = conn.prepareStatement("select numreports from tasks where taskid = ?");
-			totalNumReports = conn.prepareStatement("select sum(numreports) as totalreports from tasks");
-			totalNumTasks = conn.prepareStatement("select count(distinct taskid) as numtasks from tasks");
-			lastUpdatedByTask = conn.prepareStatement("select lastUpdated from tasks where taskid = ?");
-			lastNtasks = conn.prepareStatement("select taskid from tasks order by lastUpdated desc");
-			gettagsps = conn.prepareStatement("select taskid from tasks where tags like '%'||?||'%'");
+			createPreparedStatements();
 		} catch (SQLException e) {
-			throw new XTraceException("Unable to setup prepared statement", e);
+			throw new XTraceException("Unable to setup prepared statements", e);
 		}
 		databaseInitialized = true;
+	}
+
+	private void createTables() throws SQLException {
+		Statement s = conn.createStatement();
+		s.executeUpdate("create table tasks(" + 
+				"taskId varchar(40) not null primary key, " +
+				"firstSeen timestamp default current_timestamp not null, " +
+				"lastUpdated timestamp default current_timestamp not null, " +
+				"numReports integer default 1 not null, " +
+				"tags varchar(512), " +
+				"title varchar(128))");
+		s.executeUpdate("create index idx_tasks on tasks(taskid)");
+		s.executeUpdate("create index idx_firstseen on tasks(firstSeen)");
+		s.executeUpdate("create index idx_lastUpdated on tasks(lastUpdated)");
+		s.executeUpdate("create index idx_tags on tasks(tags)");
+		s.executeUpdate("create index idx_title on tasks(title)");
+		s.close();
+	}
+
+	private void createPreparedStatements() throws SQLException {
+		countTasks = conn.prepareStatement("select count(taskid) as rowcount from tasks where taskid = ?");
+		insert = conn.prepareStatement("insert into tasks (taskid, tags, title) values (?, ?, ?)");
+		update = conn.prepareStatement("update tasks set lastUpdated = current_timestamp, " +
+				"numReports = numReports + 1 where taskId = ?");
+		updateTitle = conn.prepareStatement("update tasks set title = ? where taskid = ?");
+		updateTags = conn.prepareStatement("update tasks set tags = ? where taskid = ?");
+		updatedSince = conn.prepareStatement("select * from tasks where firstseen >= ?");
+		numByTask = conn.prepareStatement("select numReports from tasks where taskid = ?");
+		totalNumReports = conn.prepareStatement("select sum(numReports) as totalreports from tasks");
+		totalNumTasks = conn.prepareStatement("select count(distinct taskid) as numtasks from tasks");
+		lastUpdatedByTask = conn.prepareStatement("select lastUpdated from tasks where taskid = ?");
+		lastTasks = conn.prepareStatement("select * from tasks order by lastUpdated desc");
+		getByTag = conn.prepareStatement("select * from tasks where tags like '%'||?||'%'");
+		getTags = conn.prepareStatement("select tags from tasks where taskid = ?");
+		getByTitle = conn.prepareStatement("select * from tasks where title = ?");
+		getByTitleApprox = conn.prepareStatement("select * from tasks where title like '%'||?||'%'");
 	}
 
 	public void sync() {
@@ -195,7 +218,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			
 			if (meta.getTaskId() != null) {
 				TaskID task = meta.getTaskId();
-				String taskstr = task.toString().toUpperCase();
+				String taskId = task.toString().toUpperCase();
 				BufferedWriter fout = fileCache.getHandle(task);
 				if (fout == null) {
 					LOG.warn("Discarding a report due to internal fileCache error: " + msg);
@@ -212,31 +235,55 @@ public final class FileTreeReportStore implements QueryableReportStore {
 				
 				// Update index
 				try {
-					
-					// Extract the tag, if present
-					String tag = "";
-					List<String> tags = r.get("Tag");
-					for (int i = 0; tags != null && i < tags.size(); i++) {
-						tag = tag + tags.get(i);
-						if (i < tags.size() - 1) {
-							tag = tag + ",";
-						}
+					// Extract title
+					String title = null;
+					List<String> titleVals = r.get("Title");
+					if (titleVals != null && titleVals.size() > 0) {
+						// There should be only one title field, but if there are more, just
+						// arbitrarily take the first one.
+						title = titleVals.get(0);
 					}
 					
+					// Extract tags
+					TreeSet<String> newTags = null;
+					List<String> list = r.get("Tag");
+					if (list != null) {
+						newTags = new TreeSet<String>(list);
+					}
 					
 					// Find out whether to do an insert or an update
-					querytestps.setString(1, taskstr);
-					ResultSet rs = querytestps.executeQuery();
+					countTasks.setString(1, taskId);
+					ResultSet rs = countTasks.executeQuery();
 					rs.next();
 					if (rs.getInt("rowcount") == 0) {
-						insertps.setString(1, taskstr);
-						insertps.setString(2, tag);
-						insertps.executeUpdate();
+						if (title == null) {
+							title = taskId;
+						}
+						insert.setString(1, taskId);
+						insert.setString(2, joinWithCommas(newTags));
+						insert.setString(3, title);
+						insert.executeUpdate();
 					} else {
-						// TODO: If the tag already exists, we shouldn't append the new tag
-						updateps.setString(1, tag);
-						updateps.setString(2, taskstr);
-						updateps.executeUpdate();
+						// Update title if necessary
+						if (title != null) {
+							updateTitle.setString(1, title);
+							updateTitle.setString(2, taskId);
+							updateTitle.executeUpdate();
+						}
+						// Update tags if necessary
+						if (newTags != null) {
+							getTags.setString(1, taskId);
+							ResultSet tagsRs = getTags.executeQuery();
+							tagsRs.next();
+							String oldTags = tagsRs.getString("tags");
+							newTags.addAll(Arrays.asList(oldTags.split(",")));
+							updateTags.setString(1, joinWithCommas(newTags));
+							updateTags.setString(2, taskId);
+							updateTags.executeUpdate();
+						}
+						// Update report count and last-updated date
+						update.setString(1, taskId);
+						update.executeUpdate();
 					}
 					conn.commit();
 					
@@ -247,6 +294,18 @@ public final class FileTreeReportStore implements QueryableReportStore {
 				LOG.debug("Ignoring a report without an X-Trace taskID: " + msg);
 			}
 		}
+	}
+
+	private String joinWithCommas(Collection<String> strings) {
+		if (strings == null)
+			return "";
+		StringBuilder sb = new StringBuilder();
+		for (Iterator<String> it = strings.iterator(); it.hasNext();) {
+			sb.append(it.next());
+			if (it.hasNext())
+				sb.append(",");
+		}
+		return sb.toString();
 	}
 	
 	public void run() {
@@ -269,35 +328,36 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return new FileTreeIterator(taskIdtoFile(task.toString()));
 	}
 	
-	public Iterator<TaskID> getTasksSince(long milliSecondsSince1970) {
-		ArrayList<TaskID> lst = new ArrayList<TaskID>();
+	public List<TaskRecord> getTasksSince(long milliSecondsSince1970) {
+		ArrayList<TaskRecord> lst = new ArrayList<TaskRecord>();
 		
 		try {
-			updatedSincePs.setString(1, (new Timestamp(milliSecondsSince1970)).toString());
-			ResultSet rs = updatedSincePs.executeQuery();
+			updatedSince.setString(1, (new Timestamp(milliSecondsSince1970)).toString());
+			ResultSet rs = updatedSince.executeQuery();
 			while (rs.next()) {
-				lst.add(TaskID.createFromString(rs.getString("taskid")));
+				lst.add(readTaskRecord(rs));
 			}
 		} catch (SQLException e) {
 			LOG.warn("Internal SQL error", e);
 		}
 		
-		return lst.iterator();
+		return lst;
 	}
 
-	public List<TaskID> getTasksByTag(String tag) {
-		List<TaskID> lst = new ArrayList<TaskID>();
-		
+	public List<TaskRecord> getTasksByTag(String tag) {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
 		try {
-			gettagsps.setString(1, tag);
-			ResultSet rs = gettagsps.executeQuery();
+			getByTag.setString(1, tag);
+			ResultSet rs = getByTag.executeQuery();
 			while (rs.next()) {
-				lst.add(TaskID.createFromString(rs.getString("taskid")));
+				TaskRecord rec = readTaskRecord(rs);
+				if (rec.getTags().contains(tag)) { // Make sure the SQL "LIKE" match is exact
+					lst.add(rec);
+				}
 			}
 		} catch (SQLException e) {
 			LOG.warn("Internal SQL error", e);
 		}
-		
 		return lst;
 	}
 	
@@ -345,7 +405,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return total;
 	}
 
-	public int numUniqueTasks() {
+	public int numTasks() {
 		int total = 0;
 		
 		try {
@@ -371,14 +431,22 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return fileCache.lastSynched();
 	}
 	
-	public List<TaskID> getLatestTasks(int num) {
-		List<TaskID> lst = new ArrayList<TaskID>();
-		
+	private TaskRecord readTaskRecord(ResultSet rs) throws SQLException {
+		TaskID taskId = TaskID.createFromString(rs.getString("taskId"));
+		Date firstSeen = new Date(rs.getTimestamp("firstSeen").getTime());
+		Date lastUpdated = new Date(rs.getTimestamp("lastUpdated").getTime());
+		String title = rs.getString("title");
+		int numReports = rs.getInt("numReports");
+		List<String> tags = Arrays.asList(rs.getString("tags").split(","));
+		return new TaskRecord(taskId, firstSeen, lastUpdated, numReports, title, tags);
+	}
+	
+	public List<TaskRecord> getLatestTasks(int num) {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
 		try {
-			ResultSet rs = lastNtasks.executeQuery();
+			ResultSet rs = lastTasks.executeQuery();
 			while (rs.next() && num > 0) {
-				String taskid = rs.getString("taskid");
-				lst.add(TaskID.createFromString(taskid));
+				lst.add(readTaskRecord(rs));
 				num -= 1;
 			}
 		} catch (SQLException e) {
@@ -591,5 +659,35 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		public void remove() {
 			throw new UnsupportedOperationException();
 		}
+	}
+
+	public List<TaskRecord> createRecordList(ResultSet rs) throws SQLException {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
+		while (rs.next()) {
+			lst.add(readTaskRecord(rs));
+		}
+		return lst;
+	}
+	
+	public List<TaskRecord> getTasksByTitle(String title) {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
+		try {
+			getByTitle.setString(1, title);
+			lst = createRecordList(getByTitle.executeQuery());
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		return lst;
+	}
+
+	public List<TaskRecord> getTasksByTitleSubstring(String title) {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
+		try {
+			getByTitleApprox.setString(1, title);
+			lst = createRecordList(getByTitleApprox.executeQuery());
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		return lst;
 	}
 }

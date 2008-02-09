@@ -316,13 +316,13 @@ public final class XTraceServer {
       response.setStatus(HttpServletResponse.SC_OK);
       Writer out = response.getWriter();
       
-      List<TaskID> task = reportstore.getLatestTasks(1);
+      List<TaskRecord> task = reportstore.getLatestTasks(1);
       if (task.size() != 1) {
         LOG.warn("getLatestTasks(1) returned " + task.size() + " entries");
         return;
       }
       try {
-        Iterator<Report> iter = reportstore.getReportsByTask(task.get(0));
+        Iterator<Report> iter = reportstore.getReportsByTask(task.get(0).getTaskId());
         while (iter.hasNext()) {
           Report r = iter.next();
           out.write(r.toString());
@@ -338,7 +338,7 @@ public final class XTraceServer {
   private static class LatestTasksServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
-    	Collection<TaskInfo> tasks = getLatestTasks(request);
+    	Collection<TaskRecord> tasks = getLatestTasks(request);
       showTasksAsJson(response, tasks);
     }
   }
@@ -352,8 +352,7 @@ public final class XTraceServer {
 	      if (tag == null || tag.equalsIgnoreCase("")) {
 	      	response.sendError(505, "No tag given");
 	      } else {
-	      	Collection<TaskInfo> taskInfos = 
-	      		getTaskInfos(reportstore.getTasksByTag(tag).iterator());
+	      	Collection<TaskRecord> taskInfos = reportstore.getTasksByTag(tag);
 	      	showTasksAsHtml(response, taskInfos, "Tasks with tag: " + tag, false);
 	      }
 	    }
@@ -366,10 +365,9 @@ public final class XTraceServer {
 	      int pathLen = request.getServletPath().length() + 1;
 	      String tag = uri.length() > pathLen ? uri.substring(pathLen) : null;
 	      if (tag == null || tag.equalsIgnoreCase("")) {
-		      showTasksAsJson(response, new LinkedList<TaskInfo>());
+		      showTasksAsJson(response, new LinkedList<TaskRecord>());
 	      } else {
-	      	showTasksAsJson(response, 
-	      			getTaskInfos(reportstore.getTasksByTag(tag).iterator()));
+	      	showTasksAsJson(response, reportstore.getTasksByTag(tag));
 	      }
 	    }
 	  }
@@ -378,7 +376,7 @@ public final class XTraceServer {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
       if(request.getRequestURI().equals("/")) {
-        Collection<TaskInfo> tasks = getLatestTasks(request);
+        Collection<TaskRecord> tasks = getLatestTasks(request);
         showTasksAsHtml(response, tasks, "X-Trace Latest Tasks", true);
       } else {
         super.doGet(request, response);
@@ -386,7 +384,7 @@ public final class XTraceServer {
     }
   }
 
-  private static Collection<TaskInfo> getLatestTasks(HttpServletRequest request)
+  private static Collection<TaskRecord> getLatestTasks(HttpServletRequest request)
       throws ServletException, IOException {
     long windowHours;
     try {
@@ -396,23 +394,11 @@ public final class XTraceServer {
       windowHours = 24;
     }
     long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
-    Iterator<TaskID> iter = reportstore.getTasksSince(startTime);
-    return getTaskInfos(iter);
+    return reportstore.getTasksSince(startTime);
   }
 
-	private static Collection<TaskInfo> getTaskInfos(Iterator<TaskID> iter) {
-		ArrayList<TaskInfo> infos = new ArrayList<TaskInfo>();
-    while (iter.hasNext()) {
-    	TaskID taskId = iter.next();
-      Date date = new Date(reportstore.lastUpdatedByTaskId(taskId));
-      int count = reportstore.countByTaskId(taskId);
-      infos.add(new TaskInfo(taskId, date, count));
-    }
-    return infos;
-	}
-
 	private static void showTasksAsJson(HttpServletResponse response,
-			Collection<TaskInfo> tasks) throws IOException {
+			Collection<TaskRecord> tasks) throws IOException {
 		response.setContentType("text/plain");
     VelocityContext context = new VelocityContext();
     context.put("tasks", tasks);
@@ -428,7 +414,7 @@ public final class XTraceServer {
 	}
 
 	private static void showTasksAsHtml(HttpServletResponse response,
-			Collection<TaskInfo> tasks, String title, boolean showDbStats) throws IOException {
+			Collection<TaskRecord> tasks, String title, boolean showDbStats) throws IOException {
 		response.setContentType("text/html");
 		VelocityContext context = new VelocityContext();
 		context.put("tasks", tasks);

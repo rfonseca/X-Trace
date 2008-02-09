@@ -154,9 +154,8 @@ public final class ReportLoadTest {
 			report.put("Timestamp", ""+System.currentTimeMillis());
 			report.put("Sequence", ""+numSent++);
 			report.put("X-Trace", new XTraceMetadata(task, r.nextInt()).toString());
-			if(numSent == 1) {
-				report.put("Tag", "loadtest");
-			}
+			report.put("Tag", "loadtest");
+			report.put("Title", "Load Test");
 			return report;
 		}
 		

@@ -75,7 +75,7 @@ public class FileTreeReportStoreTest {
 		
 		/* Test the interface */
 		assertEquals(1, fs.numReports());
-		assertEquals(1, fs.numUniqueTasks());
+		assertEquals(1, fs.numTasks());
 		
 		/* test getByTask and countByTaskID */
 		assertEquals(1, fs.countByTaskId(md.getTaskId()));
@@ -87,9 +87,9 @@ public class FileTreeReportStoreTest {
 		assertFalse(iter.hasNext());
 		
 		/* test getTasksSince */
-		Iterator<TaskID> taskiter = fs.getTasksSince(startTime);
+		Iterator<TaskRecord> taskiter = fs.getTasksSince(startTime).iterator();
 		assertTrue(taskiter.hasNext());
-		assertEquals(md.getTaskId(), taskiter.next());
+		assertEquals(md.getTaskId(), taskiter.next().getTaskId());
 		assertFalse(taskiter.hasNext());
 	}
 	
@@ -126,7 +126,7 @@ public class FileTreeReportStoreTest {
 		
 		/* Test numReports() and numUniqueTasks() */
 		assertEquals(TOTAL_REPORTS, fs.numReports());
-		assertEquals(NUM_STOCHASTIC_TASKS, fs.numUniqueTasks());
+		assertEquals(NUM_STOCHASTIC_TASKS, fs.numTasks());
 		
 		/* test countByTaskID() */
 		for (int i = 0; i < taskIds.length; i++) {
@@ -135,9 +135,9 @@ public class FileTreeReportStoreTest {
 		
 		/* test getTasksSince() */
 		List<String> tasklst = new ArrayList<String>(NUM_STOCHASTIC_TASKS);
-		Iterator<TaskID> taskiter = fs.getTasksSince(startTime);
+		Iterator<TaskRecord> taskiter = fs.getTasksSince(startTime).iterator();
 		while (taskiter.hasNext()) {
-			tasklst.add(taskiter.next().toString());
+			tasklst.add(taskiter.next().getTaskId().toString());
 		}
 		String[] stringsSince = tasklst.toArray(new String[0]);
 		Arrays.sort(taskStrs);
@@ -159,6 +159,95 @@ public class FileTreeReportStoreTest {
 		}
 	}
 
+	@Test
+	public void testDuplicateTags() throws XTraceException {
+		if (!canTest) return;
+		
+		/* Insert a single report into the file store */
+		TaskID taskId = new TaskID(8);
+		Report report = randomReport(new XTraceMetadata(taskId, 0));
+		report.put("Tag", "tag1");
+		report.put("Tag", "tag1");
+		fs.receiveReport(report.toString());
+		fs.sync();
+		
+		/* Test that a single copy of the tag is seen */
+		assertEquals(1, fs.getTasksByTag("tag1").size());
+		List<String> tags = fs.getTasksByTag("tag1").get(0).getTags();
+		assertEquals(1, tags.size());
+		assertEquals("tag1", tags.get(0));
+		assertEquals(0, fs.getTasksByTag("tag1,tag1").size());
+		// Substring of "tag1" should not return any tasks
+		assertEquals(0, fs.getTasksByTag("ta").size());
+		
+		/* Insert another report in the same task */
+		report = randomReport(new XTraceMetadata(taskId, 1));
+		report.put("Tag", "tag1");
+		report.put("Tag", "tag2");
+		fs.receiveReport(report.toString());
+		fs.sync();
+		
+		/* Test that a single task is returned for both tags */
+		assertEquals(1, fs.getTasksByTag("tag1").size());
+		assertEquals(1, fs.getTasksByTag("tag2").size());
+		tags = fs.getTasksByTag("tag1").get(0).getTags();
+		assertEquals(2, tags.size());
+		assertEquals(0, fs.getTasksByTag("tag1,tag1").size());
+		// Substring of "tag1" should not return any tasks
+		assertEquals(0, fs.getTasksByTag("ta").size());
+	}
+	
+	@Test
+	public void testTitleOperations() throws XTraceException {
+		if (!canTest) return;
+		
+		/* Insert a single report into the file store */
+		TaskID taskId = new TaskID(8);
+		Report report = randomReport(new XTraceMetadata(taskId, 0));
+		fs.receiveReport(report.toString());
+		fs.sync();
+		
+		/* Test that the title is the taskID (since no title field was given) */
+		assertEquals(taskId.toString(), fs.getLatestTasks(1).get(0).getTitle());
+		assertEquals(1, fs.getTasksByTitle(taskId.toString()).size());
+		
+		/* Insert another report in the same task, with no title */
+		report = randomReport(new XTraceMetadata(taskId, 1));
+		fs.receiveReport(report.toString());
+		fs.sync();
+		
+		/* Test that the title is the taskID (since no title field was given) */
+		assertEquals(taskId.toString(), fs.getLatestTasks(1).get(0).getTitle());
+		assertEquals(1, fs.getTasksByTitle(taskId.toString()).size());
+		
+		/* Insert another report in the same task, with a title */
+		report = randomReport(new XTraceMetadata(taskId, 2));
+		report.put("Title", "title1");
+		fs.receiveReport(report.toString());
+		fs.sync();
+		
+		/* Test that the title is title1 */
+		assertEquals("title1", fs.getLatestTasks(1).get(0).getTitle());
+		assertEquals(0, fs.getTasksByTitle(taskId.toString()).size());
+		assertEquals(1, fs.getTasksByTitle("title1").size());
+		
+		/* Insert another report in the same task, with another title */
+		report = randomReport(new XTraceMetadata(taskId, 3));
+		report.put("Title", "title2");
+		fs.receiveReport(report.toString());
+		fs.sync();
+		
+		/* Test that the title is title1 */
+		assertEquals("title2", fs.getLatestTasks(1).get(0).getTitle());
+		assertEquals(0, fs.getTasksByTitle(taskId.toString()).size());
+		assertEquals(0, fs.getTasksByTitle("title1").size());
+		assertEquals(1, fs.getTasksByTitle("title2").size());
+		assertEquals(1, fs.getTasksByTitleSubstring("title2").size());
+		assertEquals(1, fs.getTasksByTitleSubstring("itle").size());
+		assertEquals(1, fs.getTasksByTitleSubstring("t").size());
+		assertEquals(0, fs.getTasksByTitleSubstring("title1").size());
+	}
+	
 	@Test
 	public void testLastUpdatedByTaskID() {
 		if (!canTest) return;
@@ -208,15 +297,15 @@ public class FileTreeReportStoreTest {
 		fs.sync();
 		
 		/* Test '1' case */
-		List<TaskID> tasks = fs.getLatestTasks(1);
+		List<TaskRecord> tasks = fs.getLatestTasks(1);
 		assertEquals(1, tasks.size());
-		assertEquals(reports[9].getMetadata().getTaskId(), tasks.get(0));
+		assertEquals(reports[9].getMetadata().getTaskId(), tasks.get(0).getTaskId());
 		
 		/* Test '2' case */
 		tasks = fs.getLatestTasks(2);
 		assertEquals(2, tasks.size());
-		assertEquals(reports[9].getMetadata().getTaskId(), tasks.get(0));
-		assertEquals(reports[8].getMetadata().getTaskId(), tasks.get(1));
+		assertEquals(reports[9].getMetadata().getTaskId(), tasks.get(0).getTaskId());
+		assertEquals(reports[8].getMetadata().getTaskId(), tasks.get(1).getTaskId());
 	}
 	
 	@Test
@@ -241,15 +330,15 @@ public class FileTreeReportStoreTest {
 		fs.sync();
 		
 		/* Test null case */
-		List<TaskID> nulllst = fs.getTasksByTag("foobar");
+		List<TaskRecord> nulllst = fs.getTasksByTag("foobar");
 		assertNotNull(nulllst);
 		assertEquals(0, nulllst.size());
 		
 		/* tag in exactly 1 report */
-		List<TaskID> lst = fs.getTasksByTag("tag1");
+		List<TaskRecord> lst = fs.getTasksByTag("tag1");
 		assertNotNull(lst);
 		assertEquals(1, lst.size());
-		assertEquals(reports[2].getMetadata().getTaskId(), lst.get(0));
+		assertEquals(reports[2].getMetadata().getTaskId(), lst.get(0).getTaskId());
 		
 		/* tag in two different reports */
 		TaskID report4 = reports[4].getMetadata().getTaskId();
@@ -257,19 +346,21 @@ public class FileTreeReportStoreTest {
 		lst = fs.getTasksByTag("tag2");
 		assertNotNull(lst);
 		assertEquals(2, lst.size());
-		assertTrue(  (report4.equals(lst.get(0)) && report5.equals(lst.get(1))) ||
-				     (report5.equals(lst.get(0)) && report4.equals(lst.get(1)))   );
+		assertTrue(  (report4.equals(lst.get(0).getTaskId()) 
+				            && report5.equals(lst.get(1).getTaskId()))  ||
+				         (report5.equals(lst.get(0).getTaskId()) 
+				        		&& report4.equals(lst.get(1).getTaskId()))   );
 		
 		/* two tags in the same report */
 		TaskID report6 = reports[6].getMetadata().getTaskId();
 		lst = fs.getTasksByTag("tag3");
 		assertNotNull(lst);
 		assertEquals(1, lst.size());
-		assertEquals(report6, lst.get(0));
+		assertEquals(report6, lst.get(0).getTaskId());
 		lst = fs.getTasksByTag("tag4");
 		assertNotNull(lst);
 		assertEquals(1, lst.size());
-		assertEquals(report6, lst.get(0));
+		assertEquals(report6, lst.get(0).getTaskId());
 	}
 	
 	@After

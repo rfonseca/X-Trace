@@ -110,9 +110,9 @@ public final class UdpReporter extends Reporter
 	 */
 	public synchronized void close()
 	{
-		if (rptCtx != null) {
+		if (reporter != null) {
 			localSock.close();
-			rptCtx = null;
+			reporter = null;
 		}
 	}
 

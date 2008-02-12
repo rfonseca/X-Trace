@@ -46,7 +46,7 @@ public abstract class Reporter
 {
 	private static final Logger LOG = Logger.getLogger(Reporter.class);
 
-	static Reporter rptCtx;
+	static Reporter reporter;
 
 	/**
 	 * Retrieve a handle to the reporter.  Once a reporter
@@ -55,7 +55,7 @@ public abstract class Reporter
 	 * @return a handle to a reporter (creating one if necessary)
 	 */
 	public final static synchronized Reporter getReporter() {
-		if (rptCtx == null) {
+		if (reporter == null) {
 			String systemprop = System.getProperty("xtrace.reporter");
 
 			if (systemprop == null) {
@@ -63,7 +63,7 @@ public abstract class Reporter
 			}
 
 			try {
-				rptCtx = (Reporter) (Class.forName(systemprop)).newInstance();
+				reporter = (Reporter) (Class.forName(systemprop)).newInstance();
 				
 			} catch (InstantiationException e) {
 				LOG.warn("Unable to instantiate reporting class: " + systemprop, e);
@@ -80,13 +80,13 @@ public abstract class Reporter
 
 			Runtime.getRuntime().addShutdownHook(new Thread() {
 				public void run() {
-					if (rptCtx != null) {
-					   rptCtx.close();
+					if (reporter != null) {
+					   reporter.close();
 					}
 				}
 			});
 		}
-		return rptCtx;
+		return reporter;
 	}
 
 	/**

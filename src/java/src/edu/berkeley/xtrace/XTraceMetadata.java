@@ -41,7 +41,7 @@ import org.apache.log4j.Logger;
  * for the task (see {@link TaskID}), an OpID that is the ID of an event in the
  * computation chain, and a set of options (see {@link OptionField}). This
  * XTraceMetadata object must be passed from host to host and thread to thread
- * to capture chains of computation. The {@link XTrace} class contains static
+ * to capture chains of computation. The {@link XTraceContext} class contains static
  * utility functions for maintaining a per-thread context. 
  * 
  * @author George Porter

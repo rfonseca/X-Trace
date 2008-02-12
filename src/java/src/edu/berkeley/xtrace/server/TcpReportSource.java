@@ -13,7 +13,7 @@ import edu.berkeley.xtrace.XTraceException;
 
 /**
  * 
- * @author Matei Zahari
+ * @author Matei Zaharia
  * @author George Porter
  *
  */

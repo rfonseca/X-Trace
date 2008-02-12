@@ -113,13 +113,17 @@ public class XTraceEvent {
 		report.put("Timestamp", value, false);
 	}
 	
-	public Report getNewReport() {
-	    setTimestamp();
+	/**
+	 * Create a {@link edu.berkeley.xtrace.reporting.Report} representing this
+	 * event, to send to the X-Trace back end. 
+	 */
+	public Report createReport() {
+		setTimestamp();
 		return report;
 	}
 	
 	public void sendReport() {
-	    setTimestamp();
+		setTimestamp();
 		Reporter.getReporter().sendReport(report);
 	}
 }

@@ -42,22 +42,23 @@ import edu.berkeley.xtrace.reporting.Reporter;
  * Usage:
  * <ul>
  * <li> When communication is received, set the context using 
- *      <code>XTrace.setContext()</code>.
- * <li> To record an operation, call <code>XTrace.logEvent()</code>. 
+ *      <code>XTraceContext.setThreadContext()</code>.
+ * <li> To record an operation, call <code>XTraceContext.logEvent()</code>. 
  *      Or, to add extra fields to the event report, call 
- *      <code>XTrace.createEvent()</code>, add fields to the
+ *      <code>XTraceContext.createEvent()</code>, add fields to the
  *      returned {@link XTraceEvent} object, and send it using 
  *      {@link XTraceEvent#sendReport()}.
- * <li> When calling another service, get the current context using
- *      <code>XTrace.getContext()</code> and send it as metadata. After receiving a
- *      reply, add an edge from both the reply's metadata and the current context
- *      in the report for the reply.
- * <li> Clear the context using <code>XTrace.clearContext()</code>. 
+ * <li> When calling another service, get the current context's metadata using
+ *      <code>XTraceContext.getThreadContext()</code> and send it to the
+ *      destination service as a field in your network protocol.
+ *      After receiving a reply, add an edge from both the reply's metadata and
+ *      the current context in the report for the reply.
+ * <li> Clear the context using <code>XTraceContext.clearThreadContext()</code>. 
  * </ul>
  * 
  * @author Matei Zaharia <matei@berkeley.edu>
  */
-public class XTrace {
+public class XTraceContext {
 	/** Thread-local current operation context, used in logEvent. **/
 	private static ThreadLocal<XTraceMetadata> context
 		= new ThreadLocal<XTraceMetadata>() {
@@ -109,10 +110,39 @@ public class XTrace {
 	 * @param label description of the task
 	 */
 	public static void logEvent(String agent, String label) {
-		if (!isContextValid())
+		if (!isValid()) {
 			return;
-		Reporter.getReporter().sendReport(
-				createEvent(agent, label).getNewReport());
+		}
+		createEvent(agent, label).sendReport();
+	}
+
+	/**
+	 * Creates a new task context, adds an edge from the current thread's context,
+	 * sets the new context, and reports it to the X-Trace server.
+	 * This version of this function allows extra event fields to be specified
+	 * as variable arguments after the agent and label. For example, to add a
+	 * field called "DataSize" with value 4320, use
+	 * 
+	 * <code>XTraceContext.logEvent("agent", "label", "DataSize" 4320)</code>
+	 * 
+	 * @param agent name of current agent
+	 * @param label description of the task
+	 */
+	public static void logEvent(String agent, String label, Object... args) {
+		if (!isValid()) {
+			return;
+		}
+		if (args.length % 2 != 0) {
+			throw new IllegalArgumentException(
+					"XTraceContext.logEvent requires an even number of arguments.");
+		}
+		XTraceEvent event = createEvent(agent, label);
+		for (int i=0; i<args.length/2; i++) {
+			String key = args[2*i].toString();
+			String value = args[2*i + 1].toString();
+			event.put(key, value);
+		}
+		event.sendReport();
 	}
 	
 	/**
@@ -126,7 +156,7 @@ public class XTrace {
 	 * @param label description of the task
 	 */
 	public static XTraceEvent createEvent(String agent, String label) {
-		if (!isContextValid()) {
+		if (!isValid()) {
 			return null;
 		}
 
@@ -154,7 +184,7 @@ public class XTrace {
 	 * 
 	 * @return true if there is a current context
 	 */
-	public static boolean isContextValid() {
+	public static boolean isValid() {
 		return getThreadContext() != null;
 	}
 	
@@ -197,7 +227,7 @@ public class XTrace {
 	 * create an edge from both the start context and the current X-Trace
 	 * context, forming a subprocess box on the X-Trace graph.
 	 * 
-	 * @see XTrace#startProcess(String, String)
+	 * @see XTraceContext#startProcess(String, String)
 	 * @param process return value from #startProcess(String, String)
 	 */
 	public static void endProcess(XTraceProcess process) {
@@ -243,7 +273,7 @@ public class XTrace {
 	 * @param exception reason for failure
 	 */
 	public static void failProcess(XTraceProcess process, Throwable exception) {
-		if (XTrace.getThreadContext() != null) {
+		if (XTraceContext.getThreadContext() != null) {
 			XTraceEvent evt = createEvent(process.agent, process.name + " failed");
 			evt.addEdge(process.startCtx);
 

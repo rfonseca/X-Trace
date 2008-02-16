@@ -266,8 +266,6 @@ public final class XTraceServer {
     context.addServlet(new ServletHolder(
         new GetLatestTaskServlet()), "/latestTask");
     context.addServlet(new ServletHolder(
-        new LatestTasksServlet()), "/latestTasks");
-    context.addServlet(new ServletHolder(
         new TagServlet()), "/tag/*");
     context.addServlet(new ServletHolder(
         new TitleServlet()), "/title/*");
@@ -338,14 +336,6 @@ public final class XTraceServer {
       }
 	  }
 	}
-  
-  private static class LatestTasksServlet extends HttpServlet {
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-        throws ServletException, IOException {
-    	Collection<TaskRecord> tasks = getLatestTasks(request);
-      showTasks(request, response, tasks, null, false);
-    }
-  }
   
   private static class TagServlet extends HttpServlet {
 		protected void doGet(HttpServletRequest request,

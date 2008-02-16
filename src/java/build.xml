@@ -24,6 +24,8 @@
 		<pathelement location="${lib.dir}/junit-4.4.jar" />
 		<pathelement location="${lib.dir}/servlet-api-2.5-6.1.6.jar" />
 		<pathelement location="${lib.dir}/derby.jar" />
+		<pathelement location="${lib.dir}/velocity-1.5.jar" />
+		<pathelement location="${lib.dir}/velocity-dep-1.5.jar" />
 	</path>
 
 	<path id="run.classpath">

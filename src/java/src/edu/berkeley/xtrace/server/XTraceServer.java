@@ -29,7 +29,9 @@
 package edu.berkeley.xtrace.server;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.net.URLDecoder;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -268,7 +270,9 @@ public final class XTraceServer {
     context.addServlet(new ServletHolder(
         new TagServlet()), "/tag/*");
     context.addServlet(new ServletHolder(
-        new TagJSONServlet()), "/tagjson/*");
+        new TitleServlet()), "/title/*");
+    context.addServlet(new ServletHolder(
+        new TitleLikeServlet()), "/titleLike/*");
     
     // Add an IndexServlet as the default servlet. This servlet will serve
     // a human-readable (HTML) latest tasks page for "/" and serve static
@@ -339,50 +343,75 @@ public final class XTraceServer {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
     	Collection<TaskRecord> tasks = getLatestTasks(request);
-      showTasksAsJson(response, tasks);
+      showTasks(request, response, tasks, null, false);
     }
   }
   
   private static class TagServlet extends HttpServlet {
-	    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-	        throws ServletException, IOException {
-	      String uri = request.getRequestURI();
-	      int pathLen = request.getServletPath().length() + 1;
-	      String tag = uri.length() > pathLen ? uri.substring(pathLen) : null;
-	      if (tag == null || tag.equalsIgnoreCase("")) {
-	      	response.sendError(505, "No tag given");
-	      } else {
-	      	Collection<TaskRecord> taskInfos = reportstore.getTasksByTag(tag);
-	      	showTasksAsHtml(response, taskInfos, "Tasks with tag: " + tag, false);
-	      }
-	    }
-	  }
+		protected void doGet(HttpServletRequest request,
+				HttpServletResponse response) throws ServletException, IOException {
+			String tag = getUriPastServletName(request);
+			if (tag == null || tag.equalsIgnoreCase("")) {
+				response.sendError(505, "No tag given");
+			} else {
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTag(tag);
+				showTasks(request, response, taskInfos, "Tasks with tag: " + tag, false);
+			}
+		}
+	}
   
-  private static class TagJSONServlet extends HttpServlet {
-	    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-	        throws ServletException, IOException {
-	    	String uri = request.getRequestURI();
-	      int pathLen = request.getServletPath().length() + 1;
-	      String tag = uri.length() > pathLen ? uri.substring(pathLen) : null;
-	      if (tag == null || tag.equalsIgnoreCase("")) {
-		      showTasksAsJson(response, new LinkedList<TaskRecord>());
-	      } else {
-	      	showTasksAsJson(response, reportstore.getTasksByTag(tag));
-	      }
-	    }
-	  }
+  private static class TitleServlet extends HttpServlet {
+		protected void doGet(HttpServletRequest request,
+				HttpServletResponse response) throws ServletException, IOException {
+			String title = getUriPastServletName(request);
+			if (title == null || title.equalsIgnoreCase("")) {
+				response.sendError(505, "No title given");
+			} else {
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitle(title);
+				showTasks(request, response, taskInfos, "Tasks with title: " + title, false);
+			}
+		}
+	}
+	
+  private static class TitleLikeServlet extends HttpServlet {
+		protected void doGet(HttpServletRequest request,
+				HttpServletResponse response) throws ServletException, IOException {
+			String title = getUriPastServletName(request);
+			if (title == null || title.equalsIgnoreCase("")) {
+				response.sendError(505, "No title given");
+			} else {
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitleSubstring(title);
+				showTasks(request, response, taskInfos, "Tasks with title like: " + title, false);
+			}
+		}
+	}
   
   private static class IndexServlet extends DefaultServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
       if(request.getRequestURI().equals("/")) {
         Collection<TaskRecord> tasks = getLatestTasks(request);
-        showTasksAsHtml(response, tasks, "X-Trace Latest Tasks", true);
+        showTasks(request, response, tasks, "X-Trace Latest Tasks", true);
       } else {
         super.doGet(request, response);
       }
     }
   }
+
+	private static String getUriPastServletName(HttpServletRequest request) {
+		String uri = request.getRequestURI();
+		int pathLen = request.getServletPath().length() + 1;
+		String text = uri.length() > pathLen ? uri.substring(pathLen) : null;
+		if (text != null) {
+			try {
+				text = URLDecoder.decode(text, "UTF-8");
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+				return null;
+			}
+		}
+		return text;
+	}
 
   private static Collection<TaskRecord> getLatestTasks(HttpServletRequest request)
       throws ServletException, IOException {
@@ -397,37 +426,28 @@ public final class XTraceServer {
     return reportstore.getTasksSince(startTime);
   }
 
-	private static void showTasksAsJson(HttpServletResponse response,
-			Collection<TaskRecord> tasks) throws IOException {
-		response.setContentType("text/plain");
-    VelocityContext context = new VelocityContext();
-    context.put("tasks", tasks);
-    context.put("dateFormat", JSON_DATE_FORMAT);
-    try {
-			Velocity.mergeTemplate("tasks-json.vm", "UTF-8", context, response.getWriter());
-      response.setStatus(HttpServletResponse.SC_OK);
-		} catch (Exception e) {
-			LOG.warn("Failed to display tasks-json.vm", e);
-			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-					"Failed to display tasks-json.vm");
+	private static void showTasks(HttpServletRequest request,
+			HttpServletResponse response, Collection<TaskRecord> tasks, String title, boolean showDbStats) throws IOException {
+		if ("json".equals(request.getParameter("format"))) {
+			response.setContentType("text/plain");
 		}
-	}
-
-	private static void showTasksAsHtml(HttpServletResponse response,
-			Collection<TaskRecord> tasks, String title, boolean showDbStats) throws IOException {
-		response.setContentType("text/html");
+		else {
+			response.setContentType("text/html");
+		}
 		VelocityContext context = new VelocityContext();
 		context.put("tasks", tasks);
 		context.put("title", title);
 		context.put("reportStore", reportstore);
+		context.put("request", request);
 		context.put("showStats", showDbStats);
+    context.put("jsonDateFormat", JSON_DATE_FORMAT);
 		try {
-			Velocity.mergeTemplate("tasks-html.vm", "UTF-8", context, response.getWriter());
+			Velocity.mergeTemplate("tasks.vm", "UTF-8", context, response.getWriter());
 		  response.setStatus(HttpServletResponse.SC_OK);
 		} catch (Exception e) {
-			LOG.warn("Failed to display tasks-html.vm", e);
+			LOG.warn("Failed to display tasks.vm", e);
 			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-					"Failed to display tasks-html.vm");
+					"Failed to display tasks.vm");
 		}
 	}
   

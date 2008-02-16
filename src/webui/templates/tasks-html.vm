@@ -1,19 +1,23 @@
+## Render a list of tasks, in $tasks, as HTML. The page title is $title. If
+## $showStats is true, also show database statistics, obtained through the
+## QueryableReportStore bound to $reportStore.
 <html>
 <head><title>$title<title></head>
 <body>
 <h1>$title</h1>
 <table border=1 cellspacing=0 cellpadding=3>
-<tr><th>Title</th><th>Date</th><th>TaskID</th><th># Reports</th></tr>
-#foreach($task in $tasks)
+<tr><th>Title</th><th># Reports</th><th>Created</th><th>Last Updated</th><th>TaskID</th></tr>
+#foreach ($task in $tasks)
   <tr>
     <td><a href="/reports/$task.taskId">$task.title</a></td>
-    <td>$task.firstSeen</td>
-    <td>$task.taskId</td>
     <td>$task.numReports</td>
+    <td>$task.firstSeen</td>
+    <td>$task.lastUpdated</td>
+    <td><tt>$task.taskId</tt></td>
   </tr>
 #end
 <table>
-#if($showStats)
+#if ($showStats)
   <p>
   Database size: $reportStore.numTasks() tasks, $reportStore.numReports() reports.
   </p>

@@ -176,16 +176,16 @@ public final class FileTreeReportStore implements QueryableReportStore {
 				"numReports = numReports + 1 where taskId = ?");
 		updateTitle = conn.prepareStatement("update tasks set title = ? where taskid = ?");
 		updateTags = conn.prepareStatement("update tasks set tags = ? where taskid = ?");
-		updatedSince = conn.prepareStatement("select * from tasks where firstseen >= ?");
+		updatedSince = conn.prepareStatement("select * from tasks where firstseen >= ? order by lastUpdated desc");
 		numByTask = conn.prepareStatement("select numReports from tasks where taskid = ?");
 		totalNumReports = conn.prepareStatement("select sum(numReports) as totalreports from tasks");
 		totalNumTasks = conn.prepareStatement("select count(distinct taskid) as numtasks from tasks");
 		lastUpdatedByTask = conn.prepareStatement("select lastUpdated from tasks where taskid = ?");
 		lastTasks = conn.prepareStatement("select * from tasks order by lastUpdated desc");
-		getByTag = conn.prepareStatement("select * from tasks where tags like '%'||?||'%'");
+		getByTag = conn.prepareStatement("select * from tasks where tags like '%'||?||'%' order by lastUpdated desc");
 		getTags = conn.prepareStatement("select tags from tasks where taskid = ?");
-		getByTitle = conn.prepareStatement("select * from tasks where title = ?");
-		getByTitleApprox = conn.prepareStatement("select * from tasks where title like '%'||?||'%'");
+		getByTitle = conn.prepareStatement("select * from tasks where title = ? order by lastUpdated desc");
+		getByTitleApprox = conn.prepareStatement("select * from tasks where title like '%'||?||'%' order by lastUpdated desc");
 	}
 
 	public void sync() {
@@ -661,7 +661,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		}
 	}
 
-	public List<TaskRecord> createRecordList(ResultSet rs) throws SQLException {
+	private List<TaskRecord> createRecordList(ResultSet rs) throws SQLException {
 		List<TaskRecord> lst = new ArrayList<TaskRecord>();
 		while (rs.next()) {
 			lst.add(readTaskRecord(rs));

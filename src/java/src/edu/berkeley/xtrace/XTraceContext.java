@@ -287,4 +287,15 @@ public class XTraceContext {
 			evt.sendReport();
 		}
 	}
+
+	public static void startTrace(String agent, String title, String... tags) {
+		TaskID taskId = new TaskID(8);
+		setThreadContext(new XTraceMetadata(taskId, 0));
+		XTraceEvent event = createEvent(agent, "Start Trace: " + title);
+		event.put("Title", title);
+		for (String tag: tags) {
+			event.put("Tag", tag);
+		}
+		event.sendReport();
+	}
 }

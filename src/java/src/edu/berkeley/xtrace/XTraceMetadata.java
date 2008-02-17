@@ -29,6 +29,7 @@ package edu.berkeley.xtrace;
 
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -55,7 +56,7 @@ public final class XTraceMetadata {
 	private final TaskID taskid;
 	private byte[] opId;
 	private OptionField[] options;
-	private int numOptions;
+	private int numOptions; 
 	
 	/**
 	 * The default constructor produces an invalid XTraceMetadata object
@@ -545,7 +546,7 @@ public final class XTraceMetadata {
 
 	/**
 	 * Write this metadata to a DataOutput object in a format that can be
-	 * read by {@link #createFromDataInput(DataInput)}. This writes the
+	 * read by {@link #read(DataInput)}. This writes the
 	 * length of the object as an int, followed by the data obtained from
 	 * {@link #pack()}.
 	 * 
@@ -567,7 +568,7 @@ public final class XTraceMetadata {
 	 * @throws IOException if an XtrMetadata object as formatted by
 	 *                     {@link #write(DataOutput)} cannot be read
 	 */
-	public static XTraceMetadata createFromDataInput(DataInput in)
+	public static XTraceMetadata read(DataInput in)
 			throws IOException {
 		int length = in.readInt();
 		if (length <= 0 || length > 4096) {
@@ -616,5 +617,22 @@ public final class XTraceMetadata {
 		} else if (!taskid.equals(other.taskid))
 			return false;
 		return true;
+	}
+
+	/**
+	 * Write a given XTraceMetadata context to a DataOutput object, or send an 
+	 * invalid metadata object if context==null. 
+	 * @param context
+	 * @param out
+	 * @throws IOException
+	 */
+	public static void write(XTraceMetadata context, DataOutput out)
+			throws IOException {
+		if (context != null) {
+			context.write(out);
+		} else {
+			// write an invalid XTraceMetadata to represent no context
+			new XTraceMetadata().write(out);
+		}
 	}
 }

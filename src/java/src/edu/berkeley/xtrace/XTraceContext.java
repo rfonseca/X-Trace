@@ -28,6 +28,9 @@
 
 package edu.berkeley.xtrace;
 
+import java.io.DataOutput;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetAddress;
@@ -70,6 +73,8 @@ public class XTraceContext {
 	
 	/** Cached hostname of the current machine. **/
 	private static String hostname = null;
+
+	private static int defaultOpIdLength = 8;
 	
 	/**
 	 * Set the X-Trace context for the current thread, to link it causally to
@@ -160,8 +165,15 @@ public class XTraceContext {
 			return null;
 		}
 
-		XTraceEvent event = new XTraceEvent(4);
-		event.addEdge(getThreadContext());
+		XTraceMetadata oldContext = getThreadContext();
+		
+		int opIdLength = defaultOpIdLength;
+		if (oldContext != null) {
+			opIdLength = oldContext.getOpIdLength();
+		}
+		XTraceEvent event = new XTraceEvent(opIdLength);
+		
+		event.addEdge(oldContext);
 
 		try {
 			if (hostname == null) {
@@ -290,12 +302,20 @@ public class XTraceContext {
 
 	public static void startTrace(String agent, String title, String... tags) {
 		TaskID taskId = new TaskID(8);
-		setThreadContext(new XTraceMetadata(taskId, 0));
+		setThreadContext(new XTraceMetadata(taskId, 0L));
 		XTraceEvent event = createEvent(agent, "Start Trace: " + title);
 		event.put("Title", title);
 		for (String tag: tags) {
 			event.put("Tag", tag);
 		}
 		event.sendReport();
+	}
+
+	public static int getDefaultOpIdLength() {
+		return defaultOpIdLength;
+	}
+
+	public static void setDefaultOpIdLength(int defaultOpIdLength) {
+		XTraceContext.defaultOpIdLength = defaultOpIdLength;
 	}
 }

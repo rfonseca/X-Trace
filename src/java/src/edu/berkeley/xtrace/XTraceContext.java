@@ -262,8 +262,11 @@ public class XTraceContext {
 	 */
 	public static void endProcess(XTraceProcess process, String label) {
 		if (getThreadContext() != null) {
+			XTraceMetadata oldContext = getThreadContext();
 			XTraceEvent evt = createEvent(process.agent, label);
-			evt.addEdge(process.startCtx);
+			if (oldContext != process.startCtx) {
+				evt.addEdge(process.startCtx);	// Make sure we don't get a double edge from startCtx
+			}
 			evt.sendReport();
 		}
 	}
@@ -286,8 +289,12 @@ public class XTraceContext {
 	 */
 	public static void failProcess(XTraceProcess process, Throwable exception) {
 		if (XTraceContext.getThreadContext() != null) {
+			XTraceMetadata oldContext = getThreadContext();
 			XTraceEvent evt = createEvent(process.agent, process.name + " failed");
-			evt.addEdge(process.startCtx);
+			if (oldContext != process.startCtx) {
+				evt.addEdge(process.startCtx);	// Make sure we don't get a double edge from startCtx
+			}
+			evt.sendReport();
 
 			// Write stack trace to a string buffer
 			StringWriter sw = new StringWriter();

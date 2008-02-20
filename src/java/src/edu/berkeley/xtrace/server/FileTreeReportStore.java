@@ -45,13 +45,11 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.regex.Matcher;
@@ -59,14 +57,13 @@ import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 
-import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.TaskID;
 import edu.berkeley.xtrace.XTraceException;
+import edu.berkeley.xtrace.XTraceMetadata;
 import edu.berkeley.xtrace.reporting.Report;
 
 public final class FileTreeReportStore implements QueryableReportStore {
 	private static final Logger LOG = Logger.getLogger(FileTreeReportStore.class);
-	// TODO: a title field that replaces any previous title in that task
 	// TODO: support user-specified jdbc connect strings
 	// TODO: when the FileTreeReportStore loads up, fill in the derby database with
 	//       metdata about the already stored reports
@@ -76,11 +73,10 @@ public final class FileTreeReportStore implements QueryableReportStore {
 	private BlockingQueue<String> incomingReports;
 	private LRUFileHandleCache fileCache;
 	private Connection conn;
-	private PreparedStatement countTasks, insert, update, updateTitle, 
-														updateTags, updatedSince, numByTask, 
-														getByTag, totalNumReports, totalNumTasks,
-														lastUpdatedByTask, lastTasks, getTags,
-														getByTitle, getByTitleApprox;
+	private PreparedStatement countTasks, insert, update, updateTitle,
+			updateTags, updatedSince, numByTask, getByTag, totalNumReports,
+			totalNumTasks, lastUpdatedByTask, lastTasks, getTags, getByTitle,
+			getByTitleApprox;
 	private boolean shouldOperate = false;
 	private boolean databaseInitialized = false;
 
@@ -328,14 +324,22 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return new FileTreeIterator(taskIdtoFile(task.toString()));
 	}
 	
-	public List<TaskRecord> getTasksSince(long milliSecondsSince1970) {
+	public List<TaskRecord> getTasksSince(long milliSecondsSince1970, int offset, int limit) {
 		ArrayList<TaskRecord> lst = new ArrayList<TaskRecord>();
 		
 		try {
+			if (offset + limit + 1 < 0) {
+				updatedSince.setMaxRows(Integer.MAX_VALUE);
+			} else {
+				updatedSince.setMaxRows(offset + limit + 1);
+			}
 			updatedSince.setString(1, (new Timestamp(milliSecondsSince1970)).toString());
 			ResultSet rs = updatedSince.executeQuery();
+			int i = 0;
 			while (rs.next()) {
-				lst.add(readTaskRecord(rs));
+				if (i >= offset && i < offset + limit)
+				   lst.add(readTaskRecord(rs));
+				i++;
 			}
 		} catch (SQLException e) {
 			LOG.warn("Internal SQL error", e);
@@ -343,17 +347,47 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		
 		return lst;
 	}
-
-	public List<TaskRecord> getTasksByTag(String tag) {
+	
+	public List<TaskRecord> getLatestTasks(int num, int offset, int limit) {
 		List<TaskRecord> lst = new ArrayList<TaskRecord>();
 		try {
+			if (offset + limit + 1 < 0) {
+				lastTasks.setMaxRows(Integer.MAX_VALUE);
+			} else {
+				lastTasks.setMaxRows(offset + limit + 1);
+			}
+			ResultSet rs = lastTasks.executeQuery();
+			int i = 0;
+			while (rs.next() && num > 0) {
+				if (i >= offset && i < offset + limit)
+				   lst.add(readTaskRecord(rs));
+				num -= 1;
+				i++;
+			}
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		return lst;
+	}
+	
+	public List<TaskRecord> getTasksByTag(String tag, int offset, int limit) {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
+		try {
+			if (offset + limit + 1 < 0) {
+				getByTag.setMaxRows(Integer.MAX_VALUE);
+			} else {
+				getByTag.setMaxRows(offset + limit + 1);
+			}
 			getByTag.setString(1, tag);
 			ResultSet rs = getByTag.executeQuery();
+			int i = 0;
 			while (rs.next()) {
 				TaskRecord rec = readTaskRecord(rs);
 				if (rec.getTags().contains(tag)) { // Make sure the SQL "LIKE" match is exact
-					lst.add(rec);
+					if (i >= offset && i < offset + limit)
+					   lst.add(rec);
 				}
+				i++;
 			}
 		} catch (SQLException e) {
 			LOG.warn("Internal SQL error", e);
@@ -391,6 +425,49 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return ret;
 	}
 
+	public List<TaskRecord> createRecordList(ResultSet rs, int offset, int limit) throws SQLException {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
+		int i = 0;
+		while (rs.next()) {
+			if (i >= offset && i < offset + limit)
+			   lst.add(readTaskRecord(rs));
+			i++;
+		}
+		return lst;
+	}
+	
+	public List<TaskRecord> getTasksByTitle(String title, int offset, int limit) {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
+		try {
+			if (offset + limit + 1 < 0) {
+				getByTitle.setMaxRows(Integer.MAX_VALUE);
+			} else {
+				getByTitle.setMaxRows(offset + limit + 1);
+			}
+			getByTitle.setString(1, title);
+			lst = createRecordList(getByTitle.executeQuery(), offset, limit);
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		return lst;
+	}
+
+	public List<TaskRecord> getTasksByTitleSubstring(String title, int offset, int limit) {
+		List<TaskRecord> lst = new ArrayList<TaskRecord>();
+		try {
+			if (offset + limit + 1 < 0) {
+				getByTitleApprox.setMaxRows(Integer.MAX_VALUE);
+			} else {
+				getByTitleApprox.setMaxRows(offset + limit + 1);
+			}
+			getByTitleApprox.setString(1, title);
+			lst = createRecordList(getByTitleApprox.executeQuery(), offset, limit);
+		} catch (SQLException e) {
+			LOG.warn("Internal SQL error", e);
+		}
+		return lst;
+	}
+	
 	public int numReports() {
 		int total = 0;
 		
@@ -440,21 +517,7 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		List<String> tags = Arrays.asList(rs.getString("tags").split(","));
 		return new TaskRecord(taskId, firstSeen, lastUpdated, numReports, title, tags);
 	}
-	
-	public List<TaskRecord> getLatestTasks(int num) {
-		List<TaskRecord> lst = new ArrayList<TaskRecord>();
-		try {
-			ResultSet rs = lastTasks.executeQuery();
-			while (rs.next() && num > 0) {
-				lst.add(readTaskRecord(rs));
-				num -= 1;
-			}
-		} catch (SQLException e) {
-			LOG.warn("Internal SQL error", e);
-		}
-		return lst;
-	}
-	
+
 	private final static class LRUFileHandleCache {
 		
 		private File dataRootDir;
@@ -659,35 +722,5 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		public void remove() {
 			throw new UnsupportedOperationException();
 		}
-	}
-
-	private List<TaskRecord> createRecordList(ResultSet rs) throws SQLException {
-		List<TaskRecord> lst = new ArrayList<TaskRecord>();
-		while (rs.next()) {
-			lst.add(readTaskRecord(rs));
-		}
-		return lst;
-	}
-	
-	public List<TaskRecord> getTasksByTitle(String title) {
-		List<TaskRecord> lst = new ArrayList<TaskRecord>();
-		try {
-			getByTitle.setString(1, title);
-			lst = createRecordList(getByTitle.executeQuery());
-		} catch (SQLException e) {
-			LOG.warn("Internal SQL error", e);
-		}
-		return lst;
-	}
-
-	public List<TaskRecord> getTasksByTitleSubstring(String title) {
-		List<TaskRecord> lst = new ArrayList<TaskRecord>();
-		try {
-			getByTitleApprox.setString(1, title);
-			lst = createRecordList(getByTitleApprox.executeQuery());
-		} catch (SQLException e) {
-			LOG.warn("Internal SQL error", e);
-		}
-		return lst;
 	}
 }

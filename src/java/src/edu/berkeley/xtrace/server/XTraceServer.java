@@ -318,7 +318,7 @@ public final class XTraceServer {
       response.setStatus(HttpServletResponse.SC_OK);
       Writer out = response.getWriter();
       
-      List<TaskRecord> task = reportstore.getLatestTasks(1);
+      List<TaskRecord> task = reportstore.getLatestTasks(1, 0, Integer.MAX_VALUE);
       if (task.size() != 1) {
         LOG.warn("getLatestTasks(1) returned " + task.size() + " entries");
         return;
@@ -344,7 +344,7 @@ public final class XTraceServer {
 			if (tag == null || tag.equalsIgnoreCase("")) {
 				response.sendError(505, "No tag given");
 			} else {
-				Collection<TaskRecord> taskInfos = reportstore.getTasksByTag(tag);
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTag(tag, 0, Integer.MAX_VALUE);
 				showTasks(request, response, taskInfos, "Tasks with tag: " + tag, false);
 			}
 		}
@@ -357,7 +357,7 @@ public final class XTraceServer {
 			if (title == null || title.equalsIgnoreCase("")) {
 				response.sendError(505, "No title given");
 			} else {
-				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitle(title);
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitle(title, 0, Integer.MAX_VALUE);
 				showTasks(request, response, taskInfos, "Tasks with title: " + title, false);
 			}
 		}
@@ -370,7 +370,7 @@ public final class XTraceServer {
 			if (title == null || title.equalsIgnoreCase("")) {
 				response.sendError(505, "No title given");
 			} else {
-				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitleSubstring(title);
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitleSubstring(title, 0, Integer.MAX_VALUE);
 				showTasks(request, response, taskInfos, "Tasks with title like: " + title, false);
 			}
 		}
@@ -413,7 +413,7 @@ public final class XTraceServer {
       windowHours = 24;
     }
     long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
-    return reportstore.getTasksSince(startTime);
+    return reportstore.getTasksSince(startTime, 0, Integer.MAX_VALUE);
   }
 
 	private static void showTasks(HttpServletRequest request,

@@ -1,21 +1,255 @@
-Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src/generate/t_java_generator.cc
+Index: tutorial/java/JavaClient
 ===================================================================
---- /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src/generate/t_java_generator.cc	(revision 728)
-+++ /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src/generate/t_java_generator.cc	(working copy)
-@@ -61,7 +61,11 @@
+--- tutorial/java/JavaClient	(revision 728)
++++ tutorial/java/JavaClient	(working copy)
+@@ -1,2 +1,2 @@
+ #!/bin/sh
+-java -cp tutorial.jar:/usr/local/lib/libthrift.jar JavaClient
++java -cp tutorial.jar:/usr/local/lib/libthrift.jar:/root/jars/xtrace.jar:/root/jars/log4j-1.2.15.jar JavaClient
+Index: tutorial/java/src/JavaClient.java
+===================================================================
+--- tutorial/java/src/JavaClient.java	(revision 728)
++++ tutorial/java/src/JavaClient.java	(working copy)
+@@ -1,6 +1,5 @@
+ // Generated code
+ import tutorial.*;
+-import shared.*;
+ 
+ import com.facebook.thrift.TException;
+ import com.facebook.thrift.transport.TTransport;
+@@ -14,9 +13,17 @@
+ import java.util.HashSet;
+ import java.util.ArrayList;
+ 
++import edu.berkeley.xtrace.XTrace;
++import edu.berkeley.xtrace.TaskID;
++import edu.berkeley.xtrace.XTraceMetadata;
++import edu.berkeley.xtrace.XTraceEvent;
++
++import org.apache.log4j.BasicConfigurator;
++
+ public class JavaClient {
+   public static void main(String [] args) {
+     try {
++      BasicConfigurator.configure();
+    
+       TTransport transport = new TSocket("localhost", 9090); 
+       TProtocol protocol = new TBinaryProtocol(transport);
+@@ -24,37 +31,27 @@
+ 
+       transport.open();
+ 
+-      client.ping();
+-      System.out.println("ping()");
++      /* UC Berkeley X-Trace */
++      XTrace.setThreadContext(new XTraceMetadata(new TaskID(4), 0));
++      XTrace.logEvent("Calculator", "begin");
+ 
+-      int sum = client.add(1,1);
+-      System.out.println("1+1=" + sum);
++      XTraceMetadata md = XTrace.getThreadContext();
++      System.out.println("Before: " + md);
+ 
+-      Work work = new Work();
++      client.vonearg("Hi!");
+ 
+-      work.op = Operation.DIVIDE;
+-      work.num1 = 1;
+-      work.num2 = 0;
+-      try {
+-        int quotient = client.calculate(1, work);
+-        System.out.println("Whoa we can divide by 0");
+-      } catch (InvalidOperation io) {
+-        System.out.println("Invalid operation: " + io.why);
+-      }
++      XTraceMetadata md2 = XTrace.getThreadContext();
++      System.out.println("After: " + md2);
+ 
+-      work.op = Operation.SUBTRACT;
+-      work.num1 = 15;
+-      work.num2 = 10;
+-      try {
+-        int diff = client.calculate(1, work);
+-        System.out.println("15-10=" + diff);
+-      } catch (InvalidOperation io) {
+-        System.out.println("Invalid operation: " + io.why);
+-      }
+-      
+-      SharedStruct log = client.getStruct(1);
+-      System.out.println("Check log: " + log.value);
++      if (md2 == null)
++         System.out.println("Nothing came back... try again!");
++      if (md2 != null && md2.equals(md))
++         System.out.println("Got the same thing back... try again!");
++      if (md2 != null && !md2.equals(md))
++         System.out.println("Seems to have worked!");
+ 
++      XTrace.logEvent("Calculator", "end");
++
+       transport.close();
+                   
+     } catch (TException x) {
+Index: tutorial/java/build.xml
+===================================================================
+--- tutorial/java/build.xml	(revision 728)
++++ tutorial/java/build.xml	(working copy)
+@@ -6,6 +6,8 @@
+   <property name="gen" location="../gen-java" />
+   <property name="build" location="build" />
+   <property name="cpath" location="/usr/local/lib/libthrift.jar" />
++  <property name="xpath" location="/root/jars/xtrace.jar" />
++  <property name="logpath" location="/root/jars/log4j-1.2.15.jar" />
+ 
+   <target name="init">
+     <tstamp />
+@@ -13,8 +15,8 @@
+   </target>
+ 
+   <target name="compile" depends="init">
+-    <javac srcdir="${gen}" destdir="${build}" classpath="${cpath}" />
+-    <javac srcdir="${src}" destdir="${build}" classpath="${cpath}:${gen}" />
++    <javac srcdir="${gen}" destdir="${build}" classpath="${cpath}:${xpath}:${logpath}" />
++    <javac srcdir="${src}" destdir="${build}" classpath="${cpath}:${gen}:${xpath}:${logpath}" />
+   </target>
+ 
+   <target name="tutorial" depends="compile">
+Index: tutorial/cpp/CppClient.cpp
+===================================================================
+--- tutorial/cpp/CppClient.cpp	(revision 728)
++++ tutorial/cpp/CppClient.cpp	(working copy)
+@@ -8,17 +8,32 @@
+ 
+ #include "../gen-cpp/Calculator.h"
+ 
++#include "XtrMetadata.h"
++#include "XtrContext.h"
++#include "XtrReportCtx.h"
++
+ using namespace std;
+ using namespace facebook::thrift;
+ using namespace facebook::thrift::protocol;
+ using namespace facebook::thrift::transport;
+ 
+ using namespace tutorial;
+-using namespace shared;
+ 
+ using namespace boost;
+ 
+ int main(int argc, char** argv) {
++  XtrMetadata md, md2;
++  bool useXtrace;
++
++  if (argc > 1) {
++     useXtrace = true;
++     XtrReportCtx::init();
++     fprintf(stderr, "X-Trace status: on\n");
++  } else {
++     useXtrace = false;
++     fprintf(stderr, "X-Trace status: off\n");
++  }
++
+   shared_ptr<TTransport> socket(new TSocket("localhost", 9090));
+   shared_ptr<TTransport> transport(new TBufferedTransport(socket));
+   shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
+@@ -26,37 +41,22 @@
+ 
+   try {
+     transport->open();
+-    
+-    client.ping();
+-    printf("ping()\n");
+-    
+-    int32_t sum = client.add(1,1);
+-    printf("1+1=%d\n", sum);
+ 
+-    Work work;
+-    work.op = DIVIDE;
+-    work.num1 = 1;
+-    work.num2 = 0;
+-
+-    try {
+-      int32_t quotient = client.calculate(1, work);
+-      printf("Whoa? We can divide by zero!\n");
+-    } catch (InvalidOperation &io) {
+-      printf("InvalidOperation: %s\n", io.why.c_str());
++    if (useXtrace) {
++       md = XtrMetadata::createRandom();
++       XtrContext::setContext(md);
++       md2 = XtrContext::getContext();
++       char buf[1024];
++       md2.toString(buf, 1024);
++       fprintf(stderr, "This is it: %s\n", buf);
+     }
+ 
+-    work.op = SUBTRACT;
+-    work.num1 = 15;
+-    work.num2 = 10;
+-    int32_t diff = client.calculate(1, work);
+-    printf("15-10=%d\n", diff);
+-    
+-    // Note that C++ uses return by reference for complex types to avoid
+-    // costly copy construction
+-    SharedStruct ss;
+-    client.getStruct(ss, 1);
+-    printf("Check log: %s\n", ss.value.c_str());
++    string foo("hi");
++    client.vonearg(foo);
+ 
++    foo = "bye";
++    client.vonearg(foo);
++
+     transport->close();
+   } catch (TException &tx) {
+     printf("ERROR: %s\n", tx.what());
+Index: tutorial/cpp/Makefile
+===================================================================
+--- tutorial/cpp/Makefile	(revision 728)
++++ tutorial/cpp/Makefile	(working copy)
+@@ -2,15 +2,23 @@
+ THRIFT_DIR = /usr/local/include/thrift
+ LIB_DIR = /usr/local/lib
+ 
+-GEN_SRC = ../gen-cpp/SharedService.cpp ../gen-cpp/shared_types.cpp ../gen-cpp/tutorial_types.cpp ../gen-cpp/Calculator.cpp
++GEN_SRC = ../gen-cpp/Calculator.cpp
++LIB_XTRACE = /root/lib/libxtr-cpp.a
++INCLUDE_XTRACE = /root/include
+ 
+-default: server client
++default: sserver client proxy
+ 
+ server: CppServer.cpp
+-	g++ -o CppServer -I${THRIFT_DIR} -I${BOOST_DIR}  -I../gen-cpp -L${LIB_DIR} -lthrift CppServer.cpp ${GEN_SRC}
++	g++ -o CppServer -I${THRIFT_DIR} -I${BOOST_DIR}  -I../gen-cpp -L${LIB_DIR} -lthrift CppServer.cpp ${GEN_SRC} ${LIB_XTRACE}
+ 
++sserver: SimpleCalculator.cpp
++	g++ -ggdb -o SimpleCalculator -I${THRIFT_DIR} -I${BOOST_DIR} -I${INCLUDE_XTRACE}  -I../gen-cpp -L${LIB_DIR} -lthrift SimpleCalculator.cpp ${GEN_SRC} ${LIB_XTRACE}
++
++proxy: SimpleCalculatorProxy.cpp
++	g++ -ggdb -o SimpleCalculatorProxy -I${THRIFT_DIR} -I${BOOST_DIR} -I${INCLUDE_XTRACE}  -I../gen-cpp -L${LIB_DIR} -lthrift SimpleCalculatorProxy.cpp ${GEN_SRC} ${LIB_XTRACE}
++
+ client: CppClient.cpp
+-	g++ -o CppClient -I${THRIFT_DIR} -I${BOOST_DIR}  -I../gen-cpp -L${LIB_DIR} -lthrift CppClient.cpp ${GEN_SRC}
++	g++ -o CppClient -I${THRIFT_DIR} -I${BOOST_DIR} -I${INCLUDE_XTRACE}  -I../gen-cpp -L${LIB_DIR} -lthrift CppClient.cpp ${GEN_SRC} ${LIB_XTRACE}
+ 
+ clean:
+ 	rm -fr CppClient CppServer
+Index: compiler/cpp/src/generate/t_java_generator.cc
+===================================================================
+--- compiler/cpp/src/generate/t_java_generator.cc	(revision 728)
++++ compiler/cpp/src/generate/t_java_generator.cc	(working copy)
+@@ -61,7 +61,10 @@
      "import java.util.AbstractMap;\n" +
      "import java.util.HashMap;\n" +
      "import java.util.HashSet;\n" +
 -    "import com.facebook.thrift.*;\n\n";
 +    "import com.facebook.thrift.*;\n" +
-+    "import edu.berkeley.xtrace.Metadata;\n" +
-+    "import edu.berkeley.xtrace.EventContext;\n" +
-+    "import edu.berkeley.xtrace.XtraceEvent;\n" +
-+    "import edu.berkeley.xtrace.XtraceProcess;\n\n";
++    "import edu.berkeley.xtrace.XTrace;\n" +
++    "import edu.berkeley.xtrace.XTraceEvent;\n" +
++    "import edu.berkeley.xtrace.XTraceMetadata;\n\n";
  }
  
  /**
-@@ -376,9 +380,10 @@
+@@ -376,9 +379,10 @@
      }
      out << declare_field(*m_iter, false) << endl;
    }
@@ -27,7 +261,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
      out <<
        endl <<
        indent() << "public final Isset __isset = new Isset();" << endl <<
-@@ -388,11 +393,11 @@
+@@ -388,11 +392,11 @@
          indent(out) <<
            "public boolean " << (*m_iter)->get_name() << " = false;" <<  endl;
        }
@@ -41,7 +275,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
  
    // Default constructor
    indent(out) <<
-@@ -513,6 +518,23 @@
+@@ -513,6 +517,23 @@
            indent() << "break;" << endl;
          indent_down();
        }
@@ -65,7 +299,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
  
        // In the default case we skip the field
        out <<
-@@ -555,9 +577,10 @@
+@@ -555,9 +576,10 @@
    indent(out) << "TStruct struct = new TStruct(\"" << name << "\");" << endl;
    indent(out) << "oprot.writeStructBegin(struct);" << endl;
  
@@ -78,7 +312,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
    for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
      bool null_allowed = type_can_be_null((*f_iter)->get_type());
      if (null_allowed) {
-@@ -593,6 +616,15 @@
+@@ -593,6 +615,15 @@
        indent(out) << "}" << endl;
      }
    }
@@ -94,7 +328,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
    // Write the struct map
    out <<
      indent() << "oprot.writeFieldStop();" << endl <<
-@@ -625,9 +657,10 @@
+@@ -625,9 +656,10 @@
    indent(out) << "TStruct struct = new TStruct(\"" << name << "\");" << endl;
    indent(out) << "oprot.writeStructBegin(struct);" << endl;
  
@@ -107,7 +341,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
    bool first = true;
    for (f_iter = fields.begin(); f_iter != fields.end(); ++f_iter) {
      if (first) {
-@@ -672,6 +705,17 @@
+@@ -672,6 +704,17 @@
      indent_down();
      indent(out) << "}";
    }
@@ -125,25 +359,25 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
    // Write the struct map
    out <<
      endl <<
-@@ -970,6 +1014,9 @@
+@@ -970,6 +1013,9 @@
        indent() << "protected int seqid_;" << endl <<
        endl;
    }
 +  
 +  // X-Trace
-+  f_service_ << indent() << "protected Metadata xtraceMd_;" << endl;
++  f_service_ << indent() << "protected XTraceMetadata xtraceMd_;" << endl;
  
    // Generate client method implementations
    vector<t_function*> functions = tservice->get_functions();
-@@ -1028,6 +1075,15 @@
+@@ -1028,6 +1074,15 @@
        indent() << "oprot_.writeMessageBegin(new TMessage(\"" << funname << "\", TMessageType.CALL, seqid_));" << endl <<
        indent() << argsname << " args = new " << argsname << "();" << endl;
  
 +    // X-Trace
 +    f_service_ <<
-+    indent() << "if (EventContext.isValid()) {" << endl <<
-+    indent() << "  EventContext.logEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/start" << "\");" << endl <<
-+    indent() << "  xtraceMd_ = EventContext.getContext();" << endl <<
++    indent() << "if (XTrace.isContextValid()) {" << endl <<
++    indent() << "  XTrace.logEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/start" << "\");" << endl <<
++    indent() << "  xtraceMd_ = XTrace.getThreadContext();" << endl <<
 +    indent() << "  args.__xtrace_metadata = xtraceMd_.pack();" << endl <<
 +    indent() << "  args.__isset.__xtrace_metadata = true;" << endl <<
 +    indent() << "}" << endl;
@@ -151,7 +385,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
      for (fld_iter = fields.begin(); fld_iter != fields.end(); ++fld_iter) {
        f_service_ <<
          indent() << "args." << (*fld_iter)->get_name() << " = " << (*fld_iter)->get_name() << ";" << endl;
-@@ -1066,6 +1122,19 @@
+@@ -1066,6 +1121,19 @@
          indent() << resultname << " result = new " << resultname << "();" << endl <<
          indent() << "result.read(iprot_);" << endl <<
          indent() << "iprot_.readMessageEnd();" << endl;
@@ -159,11 +393,11 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
 +      // X-Trace
 +      f_service_ <<
 +        indent() << "if (result.__isset.__xtrace_metadata) {" << endl <<
-+        indent() << "    EventContext.setContext(" << endl <<
-+        indent() << "      Metadata.createFromBytes(result.__xtrace_metadata," << endl <<
++        indent() << "    XTrace.setThreadContext(" << endl <<
++        indent() << "      XTraceMetadata.createFromBytes(result.__xtrace_metadata," << endl <<
 +        indent() << "         0, result.__xtrace_metadata.length));" << endl <<
 +        indent() << "    if (xtraceMd_ != null) {" << endl <<
-+        indent() << "       XtraceEvent evt = EventContext.createEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/end\");" << endl <<
++        indent() << "       XTraceEvent evt = XTrace.createEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/end\");" << endl <<
 +        indent() << "       evt.addEdge(xtraceMd_);" << endl <<
 +        indent() << "       evt.sendReport();" << endl <<
 +        indent() << "    }" << endl <<
@@ -171,7 +405,7 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
  
        // Careful, only return _result if not a void function
        if (!(*f_iter)->get_returntype()->is_void()) {
-@@ -1255,7 +1324,17 @@
+@@ -1255,7 +1323,17 @@
      indent() << argsname << " args = new " << argsname << "();" << endl <<
      indent() << "args.read(iprot);" << endl <<
      indent() << "iprot.readMessageEnd();" << endl;
@@ -179,17 +413,17 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
 +  // X-Trace
 +  f_service_ <<
 +    indent() << "if (args.__isset.__xtrace_metadata) {" << endl <<
-+    indent() << "    EventContext.setContext(" << endl <<
-+    indent() << "       Metadata.createFromBytes(args.__xtrace_metadata," << endl <<
++    indent() << "    XTrace.setThreadContext(" << endl <<
++    indent() << "       XTraceMetadata.createFromBytes(args.__xtrace_metadata," << endl <<
 +    indent() << "          0, args.__xtrace_metadata.length));" << endl <<
-+    indent() << "    EventContext.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/start\");" << endl <<
++    indent() << "    XTrace.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/start\");" << endl <<
 +    indent() << "}" << endl;
  
 +
    t_struct* xs = tfunction->get_xceptions();
    const std::vector<t_field*>& xceptions = xs->get_members();
    vector<t_field*>::const_iterator x_iter;
-@@ -1300,6 +1379,16 @@
+@@ -1300,6 +1378,16 @@
      f_service_ <<
        indent() << "result.__isset.success = true;" << endl;
    }
@@ -197,12 +431,260 @@ Index: /Users/gporter/Documents/Berkeley/workspace/thrift/trunk/compiler/cpp/src
 +  // X-Trace: pull in the current context
 +  if (!tfunction->is_async()) {
 +     f_service_ <<
-+       indent() << "if (EventContext.isValid()) {" << endl <<
-+       indent() << "   EventContext.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/end\");" << endl <<
-+       indent() << "   result.__xtrace_metadata = EventContext.getContext().pack();" << endl <<
++       indent() << "if (XTrace.isContextValid()) {" << endl <<
++       indent() << "   XTrace.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/end\");" << endl <<
++       indent() << "   result.__xtrace_metadata = XTrace.getThreadContext().pack();" << endl <<
 +       indent() << "   result.__isset.__xtrace_metadata = true;" << endl <<
 +       indent() << "}" << endl;
 +  }
  
    if (!tfunction->is_async() && xceptions.size() > 0) {
      indent_down();
+Index: compiler/cpp/src/generate/t_cpp_generator.cc
+===================================================================
+--- compiler/cpp/src/generate/t_cpp_generator.cc	(revision 728)
++++ compiler/cpp/src/generate/t_cpp_generator.cc	(working copy)
+@@ -68,6 +68,9 @@
+ 
+   // Include the types file
+   f_types_impl_ <<
++    "#include \"XtrMetadata.h\"" << endl <<
++    "#include \"XtrContext.h\"" << endl;
++  f_types_impl_ <<
+     "#include \"" << program_name_ << "_types.h\"" << endl <<
+     endl;
+ 
+@@ -402,7 +405,8 @@
+     indent(out) <<
+       tstruct->get_name() << "()";
+ 
+-    bool init_ctor = false;
++    bool init_ctor = true;
++    out << " : __xtrace_metadata(\"\") ";
+ 
+     for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+       t_type* t = get_true_type((*m_iter)->get_type());
+@@ -453,6 +457,8 @@
+       endl << endl;
+   }
+ 
++  indent(out) << "std::string __xtrace_metadata;" << endl;
++
+   // Declare all fields
+   for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+     indent(out) <<
+@@ -466,15 +472,15 @@
+       has_nonrequired_fields = true;
+   }
+ 
+-  if (has_nonrequired_fields && (!pointers || read)) {
++//  if (has_nonrequired_fields && (!pointers || read)) {
+     out <<
+       endl <<
+       indent() << "struct __isset {" << endl;
+     indent_up();
+ 
+       indent(out) <<
+-        "__isset() : ";
+-      bool first = true;
++        "__isset() : __xtrace_metadata(false) ";
++      bool first = false;
+       for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+         if ((*m_iter)->get_req() == t_field::REQUIRED) {
+           continue;
+@@ -490,6 +496,7 @@
+       }
+       out << " {}" << endl;
+ 
++      indent(out) << "bool __xtrace_metadata;" << endl;
+       for (m_iter = members.begin(); m_iter != members.end(); ++m_iter) {
+         if ((*m_iter)->get_req() != t_field::REQUIRED) {
+           indent(out) <<
+@@ -500,7 +507,7 @@
+     indent_down();
+     indent(out) <<
+       "} __isset;" << endl;
+-  }
++//  }
+ 
+   out << endl;
+ 
+@@ -740,9 +747,10 @@
+   out <<
+     endl <<
+     indent() << "uint32_t xfer = 0;" << endl <<
+-    indent() << "std::string fname;" << endl <<
++    indent() << "std::string fname, xtrmd;" << endl <<
+     indent() << "facebook::thrift::protocol::TType ftype;" << endl <<
+     indent() << "int16_t fid;" << endl <<
++    indent() << "XtrMetadata md;" << endl <<
+     endl <<
+     indent() << "xfer += iprot->readStructBegin(fname);" << endl <<
+     endl <<
+@@ -819,6 +827,18 @@
+         indent_down();
+       }
+ 
++      // X-Trace metadata
++      out <<
++        indent() << "case 999:" << endl <<
++	indent() << "  if (ftype == facebook::thrift::protocol::T_STRING) {" << endl <<
++	indent() << "     xfer += iprot->readString(xtrmd);" << endl <<
++	indent() << "     md = XtrMetadata::createFromBytes((const u_int8_t *)xtrmd.c_str(), xtrmd.length());" << endl <<
++	indent() << "     XtrContext::setContext(md);" << endl <<
++	indent() << "  } else {" << endl <<
++	indent() << "    xfer += iprot->skip(ftype);" << endl <<
++	indent() << "  }" << endl <<
++	indent() << "  break;" << endl;
++
+       // In the default case we skip the field
+       out <<
+         indent() << "default:" << endl <<
+@@ -903,6 +923,23 @@
+     }
+   }
+ 
++  // Write out X-Trace
++  out <<
++    indent() << "XtrMetadata md;" << endl <<
++    indent() << "if (XtrContext::getContext().isValid()) {" << endl <<
++    indent() << "  md = XtrContext::getContext();" << endl <<
++    indent() << "  u_int8_t * __xtrace_ret_buf;" << endl <<
++    indent() << "  size_t buf_size = md.sizeAsBytes();" << endl <<
++    indent() << "  __xtrace_ret_buf = (u_int8_t *) malloc(buf_size);" << endl <<
++    indent() << "  md.pack(__xtrace_ret_buf, &buf_size);" << endl <<
++    indent() << "  std::string __xtrace_ret_string((char*)__xtrace_ret_buf, buf_size);" << endl <<
++    indent() << "  free(__xtrace_ret_buf);" << endl << endl <<
++    indent() << "  xfer += oprot->writeFieldBegin(\"__xtrace_metadata\", facebook::thrift::protocol::T_STRING, 999);" << endl <<
++    indent() << "  xfer += oprot->writeString(__xtrace_ret_string);" << endl <<
++    indent() << "  xfer += oprot->writeFieldEnd();" << endl <<
++    indent() << "}" << endl;
++     
++
+   // Write the struct map
+   out <<
+     indent() << "xfer += oprot->writeFieldStop();" << endl <<
+@@ -977,6 +1014,14 @@
+     indent(out) << "}";
+   }
+ 
++  // Write out X-Trace
++  out <<
++    indent() << "if (this->__isset.__xtrace_metadata) {" << endl <<
++    indent() << "  xfer += oprot->writeFieldBegin(\"__xtrace_metadata\", facebook::thrift::protocol::T_STRING, 999);" << endl <<
++    indent() << "  xfer += oprot->writeString(this->__xtrace_metadata);" << endl <<
++    indent() << "  xfer += oprot->writeFieldEnd();" << endl <<
++    indent() << "}" << endl;
++
+   // Write the struct map
+   out <<
+     endl <<
+@@ -1032,6 +1077,8 @@
+     autogen_comment();
+   f_service_ <<
+     "#include \"" << svcname << ".h\"" << endl <<
++    "#include \"XtrMetadata.h\"" << endl <<
++    "#include \"XtrContext.h\"" << endl <<
+     endl <<
+     ns_open_ << endl <<
+     endl;
+@@ -1394,7 +1441,16 @@
+     indent(f_service_) <<
+       function_signature(*f_iter, scope) << endl;
+     scope_up(f_service_);
++
+     indent(f_service_) <<
++      "XtrMetadata md;" << endl <<
++      "if (XtrContext::getContext().isValid()) {" << endl << 
++      "   XtrContext::logEvent(\"Thrift\", \"Client/" <<
++      service_name_ << "/" << funname << "/start\");" << endl <<
++      "   md = XtrContext::getContext();" << endl <<
++      "}" << endl;
++
++    indent(f_service_) <<
+       "send_" << funname << "(";
+ 
+     // Get the struct of function call params
+@@ -1427,6 +1483,14 @@
+           "recv_" << funname << "();" << endl;
+       }
+     }
++
++    f_service_ << indent() <<
++      "if (XtrContext::getContext().isValid()) {" << endl <<
++      "   auto_ptr<XtrEventCtx> evt = XtrContext::createEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/end\");" << endl <<
++      indent() << "   evt->addEdge(md);" << endl <<
++      indent() << "   evt->sendReport();" << endl <<
++      indent() << "}" << endl;
++
+     scope_down(f_service_);
+     f_service_ << endl;
+ 
+@@ -1783,7 +1847,7 @@
+ 
+   f_service_ <<
+     indent() << argsname << " args;" << endl <<
+-    indent() << "args.read(iprot);" << endl <<
++    indent() << "args.read(iprot); // Sets the X-Trace context, if md is present" << endl <<
+     indent() << "iprot->readMessageEnd();" << endl <<
+     indent() << "iprot->getTransport()->readEnd();" << endl <<
+     endl;
+@@ -1798,6 +1862,13 @@
+       indent() << resultname << " result;" << endl;
+   }
+ 
++  // X-Trace server-side, pre-function call report
++  f_service_ << indent() <<
++     "if (XtrContext::getContext().isValid()) {" << endl <<
++     "   XtrContext::logEvent(\"Thrift\", \""
++     << "Server/" << service_name_ << "/" << tfunction->get_name() << "/start\");" << endl <<
++     "}" << endl;
++
+   // Try block for functions with exceptions
+   f_service_ <<
+     indent() << "try {" << endl;
+@@ -1867,11 +1938,26 @@
+       indent() << "oprot->writeMessageEnd();" << endl <<
+       indent() << "oprot->getTransport()->flush();" << endl <<
+       indent() << "oprot->getTransport()->writeEnd();" << endl <<
++
++      // X-Trace server-side, exception report
++      indent() << "if (XtrContext::getContext().isValid()) {" << endl <<
++      indent() << "   XtrContext::logEvent(\"Thrift\", \""
++         << "Server/" << service_name_ << "/" << tfunction->get_name() <<
++	    "/exception\");" << endl <<
++      indent() << "}" << endl <<
++
+       indent() << "return;" << endl;
+     indent_down();
+   }
+   f_service_ << indent() << "}" << endl;
+ 
++  // X-Trace server-side, post-function call report
++  f_service_ << indent() <<
++     "if (XtrContext::getContext().isValid())" << endl <<
++     "   XtrContext::logEvent(\"Thrift\", \""
++     << "Server/" << service_name_ << "/" << tfunction->get_name() <<
++        "/end\");" << endl;
++
+   // Shortcut out here for async functions
+   if (tfunction->is_async()) {
+     f_service_ <<
+@@ -1882,6 +1968,17 @@
+     return;
+   }
+ 
++  f_service_ <<
++    indent() << "XtrMetadata md = XtrContext::getContext();" << endl <<
++    indent() << "u_int8_t * __xtrace_ret_buf;" << endl <<
++    indent() << "size_t buf_size = md.sizeAsBytes();" << endl <<
++    indent() << "__xtrace_ret_buf = (u_int8_t *) malloc(buf_size);" << endl <<
++    indent() << "md.pack(__xtrace_ret_buf, &buf_size);" << endl <<
++    indent() << "std::string __xtrace_ret_string((char*)__xtrace_ret_buf, buf_size);" << endl <<
++    indent() << "free(__xtrace_ret_buf);" << endl <<
++    indent() << "result.__xtrace_metadata = __xtrace_ret_string;" << endl <<
++    indent() << "result.__isset.__xtrace_metadata = true;" << endl;
++
+   // Serialize the result into a struct
+   f_service_ <<
+     endl <<

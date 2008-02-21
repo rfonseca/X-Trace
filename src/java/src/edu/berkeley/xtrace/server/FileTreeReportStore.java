@@ -178,10 +178,10 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		totalNumTasks = conn.prepareStatement("select count(distinct taskid) as numtasks from tasks");
 		lastUpdatedByTask = conn.prepareStatement("select lastUpdated from tasks where taskid = ?");
 		lastTasks = conn.prepareStatement("select * from tasks order by lastUpdated desc");
-		getByTag = conn.prepareStatement("select * from tasks where tags like '%'||?||'%' order by lastUpdated desc");
+		getByTag = conn.prepareStatement("select * from tasks where upper(tags) like upper('%'||?||'%') order by lastUpdated desc");
 		getTags = conn.prepareStatement("select tags from tasks where taskid = ?");
-		getByTitle = conn.prepareStatement("select * from tasks where title = ? order by lastUpdated desc");
-		getByTitleApprox = conn.prepareStatement("select * from tasks where title like '%'||?||'%' order by lastUpdated desc");
+		getByTitle = conn.prepareStatement("select * from tasks where upper(title) = upper(?) order by lastUpdated desc");
+		getByTitleApprox = conn.prepareStatement("select * from tasks where upper(title) like upper('%'||?||'%') order by lastUpdated desc");
 	}
 
 	public void sync() {

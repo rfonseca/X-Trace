@@ -4,6 +4,24 @@
 <html>
 <head><title>$title<title></head>
 <body>
+<form action="#" method="get" name="searchForm" onSubmit="doSearch(); return false;">
+<p>
+<script language="javascript"><!--
+function doSearch() {
+  document.location.href = 
+    "/" + document.searchForm.searchType.value + "/" + document.searchForm.query.value;
+}
+//--></script>
+<a href="/">Return Home</a> | 
+Search by
+<select name="searchType">
+<option selected value="titleLike">title</option>
+<option value="tag">tag</option>
+</select>
+<input name="query" value="" />
+<input type="submit" value="Go" />
+</p>
+</form>
 <h1>$title</h1>
 #parse("navbar.vm")
 <table border=1 cellspacing=0 cellpadding=3>

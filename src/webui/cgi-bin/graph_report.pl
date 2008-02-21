@@ -32,7 +32,7 @@ my $applet_h = 600;
 my $DB_CONFIG_FILE = "db.conf";
 
 my $REPORTS_URL = "http://localhost:8080/reports";
-my $DOT_CMD = "/opt/local/bin/dot";
+my $DOT_CMD = "dot";
 
 ###############
 # no need to edit below this point

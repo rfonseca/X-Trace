@@ -225,32 +225,32 @@ public class FileTreeReportStoreTest {
 		/***********************/
 		/* Test getLatestTasks */
 		/***********************/
-		lst = fs.getLatestTasks(NUM_STOCHASTIC_TASKS, 0, Integer.MAX_VALUE);
+		lst = fs.getLatestTasks(0, Integer.MAX_VALUE);
 		assertEquals(NUM_STOCHASTIC_TASKS, lst.size());
 		compareTaskLists(tasks, lst);
 		
 		/* offset: 0, limit: 25 */
-		lst = fs.getLatestTasks(NUM_STOCHASTIC_TASKS, 0, 25);
+		lst = fs.getLatestTasks(0, 25);
 		assertEquals(25, lst.size());
 		
 		/* offset: 25, limit: 5 */
-		lst.addAll(fs.getLatestTasks(NUM_STOCHASTIC_TASKS, 25, 5));
+		lst.addAll(fs.getLatestTasks(25, 5));
 		assertEquals(30, lst.size());
 		
 		/* offset: 30, limit: 1 */
-		lst.addAll(fs.getLatestTasks(NUM_STOCHASTIC_TASKS, 30, 1));
+		lst.addAll(fs.getLatestTasks(30, 1));
 		assertEquals(31, lst.size());
 		
 		/* offset: 31, limit: 0 */
-		lst.addAll(fs.getLatestTasks(NUM_STOCHASTIC_TASKS, 31, 0));
+		lst.addAll(fs.getLatestTasks(31, 0));
 		assertEquals(31, lst.size());
 		
 		/* offset: 31, limit: 68 */
-		lst.addAll(fs.getLatestTasks(NUM_STOCHASTIC_TASKS, 31, 68));
+		lst.addAll(fs.getLatestTasks(31, 68));
 		assertEquals(99, lst.size());
 		
 		/* offset: 99, limit: 1 */
-		lst.addAll(fs.getLatestTasks(NUM_STOCHASTIC_TASKS, 99, 1));
+		lst.addAll(fs.getLatestTasks(99, 1));
 		assertEquals(100, lst.size());
 		
 		compareTaskLists(tasks, lst);
@@ -426,7 +426,7 @@ public class FileTreeReportStoreTest {
 		fs.sync();
 		
 		/* Test that the title is the taskID (since no title field was given) */
-		assertEquals(taskId.toString(), fs.getLatestTasks(1, 0, Integer.MAX_VALUE).get(0).getTitle());
+		assertEquals(taskId.toString(), fs.getLatestTasks(0, 1).get(0).getTitle());
 		assertEquals(1, fs.getTasksByTitle(taskId.toString(), 0, Integer.MAX_VALUE).size());
 		
 		/* Insert another report in the same task, with no title */
@@ -435,7 +435,7 @@ public class FileTreeReportStoreTest {
 		fs.sync();
 		
 		/* Test that the title is the taskID (since no title field was given) */
-		assertEquals(taskId.toString(), fs.getLatestTasks(1, 0, Integer.MAX_VALUE).get(0).getTitle());
+		assertEquals(taskId.toString(), fs.getLatestTasks(0, 1).get(0).getTitle());
 		assertEquals(1, fs.getTasksByTitle(taskId.toString(), 0, Integer.MAX_VALUE).size());
 		
 		/* Insert another report in the same task, with a title */
@@ -445,7 +445,7 @@ public class FileTreeReportStoreTest {
 		fs.sync();
 		
 		/* Test that the title is title1 */
-		assertEquals("title1", fs.getLatestTasks(1, 0, Integer.MAX_VALUE).get(0).getTitle());
+		assertEquals("title1", fs.getLatestTasks(0, 1).get(0).getTitle());
 		assertEquals(0, fs.getTasksByTitle(taskId.toString(), 0, Integer.MAX_VALUE).size());
 		assertEquals(1, fs.getTasksByTitle("title1", 0, Integer.MAX_VALUE).size());
 		
@@ -456,7 +456,7 @@ public class FileTreeReportStoreTest {
 		fs.sync();
 		
 		/* Test that the title is title1 */
-		assertEquals("title2", fs.getLatestTasks(1, 0, Integer.MAX_VALUE).get(0).getTitle());
+		assertEquals("title2", fs.getLatestTasks(0, 1).get(0).getTitle());
 		assertEquals(0, fs.getTasksByTitle(taskId.toString(), 0, Integer.MAX_VALUE).size());
 		assertEquals(0, fs.getTasksByTitle("title1", 0, Integer.MAX_VALUE).size());
 		assertEquals(1, fs.getTasksByTitle("title2", 0, Integer.MAX_VALUE).size());
@@ -515,12 +515,12 @@ public class FileTreeReportStoreTest {
 		fs.sync();
 		
 		/* Test '1' case */
-		List<TaskRecord> tasks = fs.getLatestTasks(1, 0, Integer.MAX_VALUE);
+		List<TaskRecord> tasks = fs.getLatestTasks(0, 1);
 		assertEquals(1, tasks.size());
 		assertEquals(reports[9].getMetadata().getTaskId(), tasks.get(0).getTaskId());
 		
 		/* Test '2' case */
-		tasks = fs.getLatestTasks(2, 0, Integer.MAX_VALUE);
+		tasks = fs.getLatestTasks(0, 2);
 		assertEquals(2, tasks.size());
 		assertEquals(reports[9].getMetadata().getTaskId(), tasks.get(0).getTaskId());
 		assertEquals(reports[8].getMetadata().getTaskId(), tasks.get(1).getTaskId());

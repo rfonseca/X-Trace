@@ -348,7 +348,8 @@ public final class FileTreeReportStore implements QueryableReportStore {
 		return lst;
 	}
 	
-	public List<TaskRecord> getLatestTasks(int num, int offset, int limit) {
+	public List<TaskRecord> getLatestTasks(int offset, int limit) {
+		int numToFetch = offset + limit;
 		List<TaskRecord> lst = new ArrayList<TaskRecord>();
 		try {
 			if (offset + limit + 1 < 0) {
@@ -358,10 +359,10 @@ public final class FileTreeReportStore implements QueryableReportStore {
 			}
 			ResultSet rs = lastTasks.executeQuery();
 			int i = 0;
-			while (rs.next() && num > 0) {
+			while (rs.next() && numToFetch > 0) {
 				if (i >= offset && i < offset + limit)
 				   lst.add(readTaskRecord(rs));
-				num -= 1;
+				numToFetch -= 1;
 				i++;
 			}
 		} catch (SQLException e) {

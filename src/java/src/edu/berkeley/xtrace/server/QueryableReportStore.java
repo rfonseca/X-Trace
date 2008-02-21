@@ -39,7 +39,7 @@ public interface QueryableReportStore extends ReportStore {
 	
 	public List<TaskRecord> getTasksSince(long startTime, int offset, int limit);
 	
-	public List<TaskRecord> getLatestTasks(int num, int offset, int limit);
+	public List<TaskRecord> getLatestTasks(int offset, int limit);
 	
 	public List<TaskRecord> getTasksByTag(String tag, int offset, int limit);
 	

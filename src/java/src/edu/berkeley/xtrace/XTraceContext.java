@@ -28,6 +28,7 @@
 
 package edu.berkeley.xtrace;
 
+import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -288,13 +289,12 @@ public class XTraceContext {
 	 * @param exception reason for failure
 	 */
 	public static void failProcess(XTraceProcess process, Throwable exception) {
-		if (XTraceContext.getThreadContext() != null) {
+		if (getThreadContext() != null) {
 			XTraceMetadata oldContext = getThreadContext();
 			XTraceEvent evt = createEvent(process.agent, process.name + " failed");
 			if (oldContext != process.startCtx) {
 				evt.addEdge(process.startCtx);	// Make sure we don't get a double edge from startCtx
 			}
-			evt.sendReport();
 
 			// Write stack trace to a string buffer
 			StringWriter sw = new StringWriter();
@@ -324,5 +324,26 @@ public class XTraceContext {
 
 	public static void setDefaultOpIdLength(int defaultOpIdLength) {
 		XTraceContext.defaultOpIdLength = defaultOpIdLength;
+	}
+
+	public static void writeThreadContext(DataOutput out) throws IOException {
+		XTraceMetadata.write(getThreadContext(), out);
+	}
+	
+	public static void readThreadContext(DataInput in) throws IOException {
+		setThreadContext(XTraceMetadata.read(in));
+	}
+	
+	/**
+	 * Replace the current context with a new one, returning the value of
+	 * the old context.
+	 * 
+	 * @param newContext The context to replace the current one with.
+	 * @return
+	 */
+	public static XTraceMetadata switchThreadContext(XTraceMetadata newContext) {
+		XTraceMetadata oldContext = getThreadContext();
+		setThreadContext(newContext);
+		return oldContext;
 	}
 }

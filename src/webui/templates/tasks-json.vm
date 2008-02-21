@@ -4,8 +4,8 @@
   {
     "taskId": "$task.taskId", 
     "title": "$task.title", 
-    "firstSeen": "$jsonDateFormat.format($task.firstSeen)",
-    "lastUpdated": "$jsonDateFormat.format($task.lastUpdated)",
+    "firstSeen": "$JSON_DATE_FORMAT.format($task.firstSeen)",
+    "lastUpdated": "$JSON_DATE_FORMAT.format($task.lastUpdated)",
     "numReports": "$task.numReports"
     "tags": [#foreach ($tag in $task.tags)"$tag", #end]
   },

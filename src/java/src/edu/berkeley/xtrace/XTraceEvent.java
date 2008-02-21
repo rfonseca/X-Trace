@@ -66,6 +66,10 @@ public class XTraceEvent {
 	}
 	
 	public void addEdge(XTraceMetadata xtr) {
+		if (xtr == null || !xtr.isValid()) {
+			return;
+		}
+		
 		XTraceMetadata newmd = new XTraceMetadata(xtr);
 		newmd.setOpId(myOpId);
 		

@@ -89,6 +89,11 @@ public final class XTraceServer {
 	
 	private static final DateFormat JSON_DATE_FORMAT =
 		new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
+	private static final DateFormat HTML_DATE_FORMAT =
+		new SimpleDateFormat("MMM dd yyyy, HH:mm:ss"); 
+	
+	// Default number of results to show per page for web UI
+	private static final int PAGE_LENGTH = 25;
 	
 	public static void main(String[] args) {
 		BasicConfigurator.configure();
@@ -318,7 +323,7 @@ public final class XTraceServer {
       response.setStatus(HttpServletResponse.SC_OK);
       Writer out = response.getWriter();
       
-      List<TaskRecord> task = reportstore.getLatestTasks(1, 0, Integer.MAX_VALUE);
+      List<TaskRecord> task = reportstore.getLatestTasks(0, 1);
       if (task.size() != 1) {
         LOG.warn("getLatestTasks(1) returned " + task.size() + " entries");
         return;
@@ -344,7 +349,8 @@ public final class XTraceServer {
 			if (tag == null || tag.equalsIgnoreCase("")) {
 				response.sendError(505, "No tag given");
 			} else {
-				Collection<TaskRecord> taskInfos = reportstore.getTasksByTag(tag, 0, Integer.MAX_VALUE);
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTag(
+						tag, getOffset(request), getLength(request));
 				showTasks(request, response, taskInfos, "Tasks with tag: " + tag, false);
 			}
 		}
@@ -357,7 +363,8 @@ public final class XTraceServer {
 			if (title == null || title.equalsIgnoreCase("")) {
 				response.sendError(505, "No title given");
 			} else {
-				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitle(title, 0, Integer.MAX_VALUE);
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitle(
+						title, getOffset(request), getLength(request));
 				showTasks(request, response, taskInfos, "Tasks with title: " + title, false);
 			}
 		}
@@ -370,7 +377,8 @@ public final class XTraceServer {
 			if (title == null || title.equalsIgnoreCase("")) {
 				response.sendError(505, "No title given");
 			} else {
-				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitleSubstring(title, 0, Integer.MAX_VALUE);
+				Collection<TaskRecord> taskInfos = reportstore.getTasksByTitleSubstring(
+						title, getOffset(request), getLength(request));
 				showTasks(request, response, taskInfos, "Tasks with title like: " + title, false);
 			}
 		}
@@ -380,7 +388,7 @@ public final class XTraceServer {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
       if(request.getRequestURI().equals("/")) {
-        Collection<TaskRecord> tasks = getLatestTasks(request);
+        Collection<TaskRecord> tasks = reportstore.getLatestTasks(getOffset(request), getLength(request));
         showTasks(request, response, tasks, "X-Trace Latest Tasks", true);
       } else {
         super.doGet(request, response);
@@ -403,20 +411,7 @@ public final class XTraceServer {
 		return text;
 	}
 
-  private static Collection<TaskRecord> getLatestTasks(HttpServletRequest request)
-      throws ServletException, IOException {
-    long windowHours;
-    try {
-      windowHours = Long.parseLong(request.getParameter("window"));
-      if (windowHours < 0) throw new IllegalArgumentException();
-    } catch(Exception ex) {
-      windowHours = 24;
-    }
-    long startTime = System.currentTimeMillis() - windowHours * 60 * 60 * 1000;
-    return reportstore.getTasksSince(startTime, 0, Integer.MAX_VALUE);
-  }
-
-	private static void showTasks(HttpServletRequest request,
+  private static void showTasks(HttpServletRequest request,
 			HttpServletResponse response, Collection<TaskRecord> tasks, String title, boolean showDbStats) throws IOException {
 		if ("json".equals(request.getParameter("format"))) {
 			response.setContentType("text/plain");
@@ -424,13 +419,24 @@ public final class XTraceServer {
 		else {
 			response.setContentType("text/html");
 		}
+    int offset = getOffset(request);
+    int length = getLength(request);
+    // Create Velocity context
 		VelocityContext context = new VelocityContext();
 		context.put("tasks", tasks);
 		context.put("title", title);
 		context.put("reportStore", reportstore);
 		context.put("request", request);
+		context.put("offset", offset);
+		context.put("length", length);
+    context.put("lastResultNum", offset + length - 1);
+		context.put("prevOffset", Math.max(0, offset - length));
+		context.put("nextOffset", offset + length);
 		context.put("showStats", showDbStats);
-    context.put("jsonDateFormat", JSON_DATE_FORMAT);
+    context.put("JSON_DATE_FORMAT", JSON_DATE_FORMAT);
+    context.put("HTML_DATE_FORMAT", HTML_DATE_FORMAT);
+    context.put("PAGE_LENGTH", PAGE_LENGTH);
+    // Return Velocity results
 		try {
 			Velocity.mergeTemplate("tasks.vm", "UTF-8", context, response.getWriter());
 		  response.setStatus(HttpServletResponse.SC_OK);
@@ -439,6 +445,46 @@ public final class XTraceServer {
 			response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
 					"Failed to display tasks.vm");
 		}
+	}
+
+	/**
+	 * Get the length GET parameter from a HTTP request, or return the default
+	 * (of PAGE_LENGTH) when it is not specified or invalid.
+	 * @param request
+	 * @return
+	 */
+	private static int getLength(HttpServletRequest request) {
+		int length = getIntParam(request, "length", PAGE_LENGTH);
+		return Math.max(length, 0); // Don't allow negative
+	}
+
+	/**
+	 * Get the offset HTTP parameter from a request, or return the default
+	 * (of 0) when it is not specified.
+	 * @param request
+	 * @return
+	 */
+	private static int getOffset(HttpServletRequest request) {
+		int offset = getIntParam(request, "offset", 0);
+		return Math.max(offset, 0); // Don't allow negative
+	}
+	
+	/**
+	 * Read an integer parameter from a HTTP request, or return a default value
+	 * if the parameter is not specified.
+	 * @param request
+	 * @param name
+	 * @param defaultValue
+	 * @return
+	 */
+	private static final int getIntParam(
+			HttpServletRequest request, String name, int defaultValue) {
+    int value;
+    try {
+    	return Integer.parseInt(request.getParameter(name));
+    } catch(Exception ex) {
+      return defaultValue;
+    }
 	}
   
 	private static final class SyncTimer extends TimerTask {

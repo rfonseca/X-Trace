@@ -1,0 +1,6 @@
+## Render the nav bar for going to the previous/next tasks in a result set.
+<p>
+<a href="$request.requestURI?offset=$prevOffset&length=$length">[&lt;&lt; Previous $length]</a>
+- Showing Tasks ${offset} - $lastResultNum -
+<a href="$request.requestURI?offset=$nextOffset&length=$length">[Next $length &gt;&gt;]</a>
+</p>

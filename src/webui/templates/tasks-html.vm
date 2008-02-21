@@ -5,34 +5,48 @@
 <head><title>$title<title></head>
 <body>
 <h1>$title</h1>
+#parse("navbar.vm")
 <table border=1 cellspacing=0 cellpadding=3>
 <tr>
-  <th>Title</th>
-  <th># Reports</th>
+  <th>Trace Title</th>
+  <th>Reports</th>
   <th>Created</th>
   <th>Last Report</th>
   <th>TaskID</th>
   <th>Tags</th>
+  <th>Graphs</th>
 </tr>
 #foreach ($task in $tasks)
   <tr>
-    <td><a href="/reports/$task.taskId">$task.title</a></td>
-    <td>$task.numReports</td>
-    <td>$task.firstSeen</td>
-    <td>$task.lastUpdated</td>
+    <td><a href="/title/$task.title">$task.title</a></td>
+    <td><a href="/reports/${task.taskId}">$task.numReports</a></td>
+    <td>$HTML_DATE_FORMAT.format($task.firstSeen)</td>
+    <td>$HTML_DATE_FORMAT.format($task.lastUpdated)</td>
     <td><tt>$task.taskId</tt></td>
     <td>
     #foreach ($tag in $task.tags)
       <a href="/tag/$tag">$tag</a>#if($velocityCount<$task.tags.size()),#end
     #end
     </td>
+    <td>
+      <a href="/graph.rb?taskid=$task.taskId">Applet</a>,
+      <a href="/graph.rb?taskid=$task.taskId&format=gif">GIF</a>,
+      <a href="/graph.rb?taskid=$task.taskId&format=pdf">PDF</a>
+    </td>
   </tr>
 #end
-<table>
+</table>
+#parse("navbar.vm")
+<form action="$request.requestURI" method="get">
+<p>
+<input type="hidden" name="offset" value="$offset" />
+Results per page: <input type="text" name="length" value="$length" size="6" />
+<input type="submit" value="Change" />
+</P> 
+</form>
 #if ($showStats)
-  <p>
-  Database size: $reportStore.numTasks() tasks, $reportStore.numReports() reports.
-  </p>
+  <hr />
+  <p>Database size: $reportStore.numTasks() tasks, $reportStore.numReports() reports.</p>
 #end
 </body>
 </html>

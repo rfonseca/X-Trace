@@ -260,6 +260,10 @@ public final class XTraceServer {
     // Create a CGI servlet for scripts in webui/cgi-bin 
     ServletHolder cgiHolder = new ServletHolder(new CGI());
     cgiHolder.setInitParameter("cgibinResourceBase", webDir + "/cgi-bin");
+    if (System.getenv("PATH") != null) {
+    	// Pass any special PATH setting on to the execution environment
+    	cgiHolder.setInitParameter("Path", System.getenv("PATH"));
+    }
     context.addServlet(cgiHolder, "*.cgi");
     context.addServlet(cgiHolder, "*.pl");
     context.addServlet(cgiHolder, "*.py");

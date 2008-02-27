@@ -105,6 +105,12 @@ public final class SendReportTool {
 	private static void reportRandom() {
 		Reporter ctx = Reporter.getReporter();
 		Report rpt = randomReport(new TaskID(8));
+		rpt.put("Agent", "RandomReport");
+		rpt.put("Label", "report");
+		rpt.put("Tag", "rnd");
+		rpt.put("Tag", "rpt");
+		rpt.put("Title", "RandomReport");
+		rpt.put("Host", "localhost.localdomain");
 		LOG.info("Sending the report:\n" + rpt);
 		ctx.sendReport(rpt);
 		ctx.close();

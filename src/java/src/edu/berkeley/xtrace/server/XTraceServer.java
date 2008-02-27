@@ -96,7 +96,6 @@ public final class XTraceServer {
 	private static final int PAGE_LENGTH = 25;
 	
 	public static void main(String[] args) {
-		BasicConfigurator.configure();
 		
 		// If they use the default configuration (the FileTree report store),
 		// then they have to specify the directory in which to store reports
@@ -121,7 +120,8 @@ public final class XTraceServer {
 		
 		// Default input sources
 		String sourcesStr = "edu.berkeley.xtrace.server.UdpReportSource," +
-		                    "edu.berkeley.xtrace.server.TcpReportSource";
+		                    "edu.berkeley.xtrace.server.TcpReportSource," +
+		                    "edu.berkeley.xtrace.server.ThriftReportSource";
 		
 		if (System.getProperty("xtrace.server.sources") != null) {
 			sourcesStr = System.getProperty("xtrace.server.sources");
@@ -133,6 +133,7 @@ public final class XTraceServer {
 		sources = new ReportSource[sourcesLst.length];
 		for (int i = 0; i < sourcesLst.length; i++) {
 			try {
+				LOG.info("Starting report source '" + sourcesLst[i] + "'");
 				sources[i] = (ReportSource) Class.forName(sourcesLst[i]).newInstance();
 			} catch (InstantiationException e1) {
 				LOG.fatal("Could not instantiate report source", e1);

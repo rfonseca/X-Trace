@@ -109,7 +109,7 @@ public final class TcpReporter extends Reporter
 	public synchronized void flush() {
 		super.flush();
 		if (socket != null) {
-			LOG.info("Flushing TcpReporter");
+			LOG.debug("Flushing TcpReporter");
 			try {
 				out.flush();
 			} catch (IOException e) {;}

@@ -5,7 +5,7 @@ Index: tutorial/java/JavaClient
 @@ -1,2 +1,2 @@
  #!/bin/sh
 -java -cp tutorial.jar:/usr/local/lib/libthrift.jar JavaClient
-+java -cp tutorial.jar:/usr/local/lib/libthrift.jar:/root/jars/xtrace.jar:/root/jars/log4j-1.2.15.jar JavaClient
++java -cp tutorial.jar:/usr/local/lib/libthrift.jar:/usr/local/xtrace/lib/xtrace-2.0.jar:/usr/local/xtrace/lib/log4j-1.2.15.jar JavaClient
 Index: tutorial/java/src/JavaClient.java
 ===================================================================
 --- tutorial/java/src/JavaClient.java	(revision 728)
@@ -21,7 +21,7 @@ Index: tutorial/java/src/JavaClient.java
  import java.util.HashSet;
  import java.util.ArrayList;
  
-+import edu.berkeley.xtrace.XTrace;
++import edu.berkeley.xtrace.XTraceContext;
 +import edu.berkeley.xtrace.TaskID;
 +import edu.berkeley.xtrace.XTraceMetadata;
 +import edu.berkeley.xtrace.XTraceEvent;
@@ -42,16 +42,16 @@ Index: tutorial/java/src/JavaClient.java
 -      client.ping();
 -      System.out.println("ping()");
 +      /* UC Berkeley X-Trace */
-+      XTrace.setThreadContext(new XTraceMetadata(new TaskID(4), 0));
-+      XTrace.logEvent("Calculator", "begin");
++      XTraceContext.setThreadContext(new XTraceMetadata(new TaskID(4), 0));
++      XTraceContext.logEvent("Calculator", "begin");
  
 -      int sum = client.add(1,1);
 -      System.out.println("1+1=" + sum);
-+      XTraceMetadata md = XTrace.getThreadContext();
++      XTraceMetadata md = XTraceContext.getThreadContext();
 +      System.out.println("Before: " + md);
  
 -      Work work = new Work();
-+      client.vonearg("Hi!");
++      client.ping();
  
 -      work.op = Operation.DIVIDE;
 -      work.num1 = 1;
@@ -62,7 +62,7 @@ Index: tutorial/java/src/JavaClient.java
 -      } catch (InvalidOperation io) {
 -        System.out.println("Invalid operation: " + io.why);
 -      }
-+      XTraceMetadata md2 = XTrace.getThreadContext();
++      XTraceMetadata md2 = XTraceContext.getThreadContext();
 +      System.out.println("After: " + md2);
  
 -      work.op = Operation.SUBTRACT;
@@ -84,11 +84,19 @@ Index: tutorial/java/src/JavaClient.java
 +      if (md2 != null && !md2.equals(md))
 +         System.out.println("Seems to have worked!");
  
-+      XTrace.logEvent("Calculator", "end");
++      XTraceContext.logEvent("Calculator", "end");
 +
        transport.close();
                    
      } catch (TException x) {
+Index: tutorial/java/JavaServer
+===================================================================
+--- tutorial/java/JavaServer	(revision 728)
++++ tutorial/java/JavaServer	(working copy)
+@@ -1,2 +1,2 @@
+ #!/bin/sh
+-java -cp tutorial.jar:/usr/local/lib/libthrift.jar JavaServer
++java -cp tutorial.jar:/usr/local/lib/libthrift.jar:/usr/local/xtrace/lib/xtrace-2.0.jar:/usr/local/xtrace/lib/log4j-1.2.15.jar JavaServer
 Index: tutorial/java/build.xml
 ===================================================================
 --- tutorial/java/build.xml	(revision 728)
@@ -97,8 +105,8 @@ Index: tutorial/java/build.xml
    <property name="gen" location="../gen-java" />
    <property name="build" location="build" />
    <property name="cpath" location="/usr/local/lib/libthrift.jar" />
-+  <property name="xpath" location="/root/jars/xtrace.jar" />
-+  <property name="logpath" location="/root/jars/log4j-1.2.15.jar" />
++  <property name="xpath" location="/usr/local/xtrace/lib/xtrace-2.0.jar" />
++  <property name="logpath" location="/usr/local/xtrace/lib/log4j-1.2.15.jar" />
  
    <target name="init">
      <tstamp />
@@ -243,7 +251,7 @@ Index: compiler/cpp/src/generate/t_java_generator.cc
      "import java.util.HashSet;\n" +
 -    "import com.facebook.thrift.*;\n\n";
 +    "import com.facebook.thrift.*;\n" +
-+    "import edu.berkeley.xtrace.XTrace;\n" +
++    "import edu.berkeley.xtrace.XTraceContext;\n" +
 +    "import edu.berkeley.xtrace.XTraceEvent;\n" +
 +    "import edu.berkeley.xtrace.XTraceMetadata;\n\n";
  }
@@ -375,9 +383,9 @@ Index: compiler/cpp/src/generate/t_java_generator.cc
  
 +    // X-Trace
 +    f_service_ <<
-+    indent() << "if (XTrace.isContextValid()) {" << endl <<
-+    indent() << "  XTrace.logEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/start" << "\");" << endl <<
-+    indent() << "  xtraceMd_ = XTrace.getThreadContext();" << endl <<
++    indent() << "if (XTraceContext.isValid()) {" << endl <<
++    indent() << "  XTraceContext.logEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/start" << "\");" << endl <<
++    indent() << "  xtraceMd_ = XTraceContext.getThreadContext();" << endl <<
 +    indent() << "  args.__xtrace_metadata = xtraceMd_.pack();" << endl <<
 +    indent() << "  args.__isset.__xtrace_metadata = true;" << endl <<
 +    indent() << "}" << endl;
@@ -393,11 +401,11 @@ Index: compiler/cpp/src/generate/t_java_generator.cc
 +      // X-Trace
 +      f_service_ <<
 +        indent() << "if (result.__isset.__xtrace_metadata) {" << endl <<
-+        indent() << "    XTrace.setThreadContext(" << endl <<
++        indent() << "    XTraceContext.setThreadContext(" << endl <<
 +        indent() << "      XTraceMetadata.createFromBytes(result.__xtrace_metadata," << endl <<
 +        indent() << "         0, result.__xtrace_metadata.length));" << endl <<
 +        indent() << "    if (xtraceMd_ != null) {" << endl <<
-+        indent() << "       XTraceEvent evt = XTrace.createEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/end\");" << endl <<
++        indent() << "       XTraceEvent evt = XTraceContext.createEvent(\"Thrift\", \"Client/" << service_name_ << "/" << funname << "/end\");" << endl <<
 +        indent() << "       evt.addEdge(xtraceMd_);" << endl <<
 +        indent() << "       evt.sendReport();" << endl <<
 +        indent() << "    }" << endl <<
@@ -413,10 +421,10 @@ Index: compiler/cpp/src/generate/t_java_generator.cc
 +  // X-Trace
 +  f_service_ <<
 +    indent() << "if (args.__isset.__xtrace_metadata) {" << endl <<
-+    indent() << "    XTrace.setThreadContext(" << endl <<
++    indent() << "    XTraceContext.setThreadContext(" << endl <<
 +    indent() << "       XTraceMetadata.createFromBytes(args.__xtrace_metadata," << endl <<
 +    indent() << "          0, args.__xtrace_metadata.length));" << endl <<
-+    indent() << "    XTrace.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/start\");" << endl <<
++    indent() << "    XTraceContext.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/start\");" << endl <<
 +    indent() << "}" << endl;
  
 +
@@ -431,9 +439,9 @@ Index: compiler/cpp/src/generate/t_java_generator.cc
 +  // X-Trace: pull in the current context
 +  if (!tfunction->is_async()) {
 +     f_service_ <<
-+       indent() << "if (XTrace.isContextValid()) {" << endl <<
-+       indent() << "   XTrace.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/end\");" << endl <<
-+       indent() << "   result.__xtrace_metadata = XTrace.getThreadContext().pack();" << endl <<
++       indent() << "if (XTraceContext.isValid()) {" << endl <<
++       indent() << "   XTraceContext.logEvent(\"Thrift\", \"Server/" << service_name_ << "/" << tfunction->get_name() << "/end\");" << endl <<
++       indent() << "   result.__xtrace_metadata = XTraceContext.getThreadContext().pack();" << endl <<
 +       indent() << "   result.__isset.__xtrace_metadata = true;" << endl <<
 +       indent() << "}" << endl;
 +  }

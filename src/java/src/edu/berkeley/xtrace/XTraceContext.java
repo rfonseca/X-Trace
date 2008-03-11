@@ -30,14 +30,11 @@ package edu.berkeley.xtrace;
 
 import java.io.DataInput;
 import java.io.DataOutput;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
-import edu.berkeley.xtrace.reporting.Reporter;
 
 /**
  * High-level API for maintaining a per-thread X-Trace context (task and
@@ -83,7 +80,7 @@ public class XTraceContext {
 	 * 
 	 * @param ctx the new context
 	 */
-	public static void setThreadContext(XTraceMetadata ctx) {
+	public synchronized static void setThreadContext(XTraceMetadata ctx) {
 		if (ctx != null && ctx.isValid()) {
 			context.set(ctx);
 		} else {
@@ -97,14 +94,14 @@ public class XTraceContext {
 	 * 
 	 * @return current thread's X-Trace context
 	 */
-	public static XTraceMetadata getThreadContext() {
+	public synchronized static XTraceMetadata getThreadContext() {
 		return context.get();
 	}
 	
 	/**
 	 * Clear current thread's X-Trace context.
 	 */
-	public static void clearThreadContext() {
+	public synchronized static void clearThreadContext() {
 		context.set(null);
 	}
 
@@ -341,7 +338,7 @@ public class XTraceContext {
 	 * @param newContext The context to replace the current one with.
 	 * @return
 	 */
-	public static XTraceMetadata switchThreadContext(XTraceMetadata newContext) {
+	public synchronized static XTraceMetadata switchThreadContext(XTraceMetadata newContext) {
 		XTraceMetadata oldContext = getThreadContext();
 		setThreadContext(newContext);
 		return oldContext;

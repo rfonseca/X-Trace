@@ -135,7 +135,38 @@ public final class IoUtil
       } catch (IOException e) { } // exception can't happen
       return s;
    }
-
+   
+   public static String longToString(long l) {
+	      byte[] b = new byte[8];
+	      b[0] = (byte) (l >>> 56);
+	      b[1] = (byte) (l >>> 48);
+	      b[2] = (byte) (l >>> 40);
+	      b[3] = (byte) (l >>> 32);
+	      b[4] = (byte) (l >>> 24);
+	      b[5] = (byte) (l >>> 16);
+	      b[6] = (byte) (l >>> 8);
+	      b[7] = (byte) (l);
+	      String s = null;
+	      try {
+	         s = bytesToString(b);
+	      } catch (IOException e) { } // exception can't happen
+	      return s;
+	   }
+   
+   public static long hexStringToLong(String s) throws NumberFormatException {
+	   if (s == null || s.length() < 2) {
+		   throw new NumberFormatException(s);
+	   }
+	   char firstChar = s.charAt(0);
+	   if (firstChar >= '0' && firstChar <= '7') {
+		   return Long.parseLong(s, 16);
+	   } else {
+		   // Slower method when s is negative
+		   java.math.BigInteger big = new java.math.BigInteger(s, 16);
+		   return big.longValue();
+	   }
+   }
+   
 	 private static final Pattern NEWLINES = Pattern.compile("[\r\n]+");
 	 
    public static String escapeNewlines(String str) {

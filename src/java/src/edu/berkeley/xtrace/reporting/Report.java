@@ -243,9 +243,11 @@ public class Report {
 		try {
 			while ((line = in.readLine()) != null) {
 				int idx = line.indexOf(":");
-				String key = line.substring(0, idx).trim();
-				String value = line.substring(idx + 1, line.length()).trim();
-				put(key, value);
+				if (idx >= 0) {
+					String key = line.substring(0, idx).trim();
+					String value = line.substring(idx + 1, line.length()).trim();
+					put(key, value);
+				}
 			}
 		} catch (IOException e) {
 			LOG.warn("Internal I/O Error", e);

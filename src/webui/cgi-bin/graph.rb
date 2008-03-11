@@ -7,7 +7,7 @@ require 'socket'
 
 load 'lib/reports.rb'
 
-DOT_PATH = "/opt/local/bin/dot"         # TODO: Make this configurable
+DOT_PATH = "/sw/bin/dot"         # TODO: Make this configurable
 SERVER_URL = "http://localhost:8080"    # TODO: Don't hard-code server info
 
 # Create a CGI object with HTML4 output

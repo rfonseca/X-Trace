@@ -6,7 +6,7 @@
     "title": "$task.title", 
     "firstSeen": "$JSON_DATE_FORMAT.format($task.firstSeen)",
     "lastUpdated": "$JSON_DATE_FORMAT.format($task.lastUpdated)",
-    "numReports": "$task.numReports"
+    "numReports": "$task.numReports",
     "tags": [#foreach ($tag in $task.tags)"$tag", #end]
   },
 #end

@@ -126,7 +126,7 @@ public final class XTraceServer {
 		if (System.getProperty("xtrace.server.sources") != null) {
 			sourcesStr = System.getProperty("xtrace.server.sources");
 		} else {
-			LOG.warn("No server report sources specified... using defaults (Udp,Tcp)");
+			LOG.warn("No server report sources specified... using defaults (Udp,Tcp,Thrift)");
 		}
 		String[] sourcesLst = sourcesStr.split(",");
 		

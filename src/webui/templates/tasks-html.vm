@@ -2,7 +2,7 @@
 ## $showStats is true, also show database statistics, obtained through the
 ## QueryableReportStore bound to $reportStore.
 <html>
-<head><title>$title<title></head>
+<head><title>X-Trace Viewer - $title<title></head>
 <body>
 <form action="#" method="get" name="searchForm" onSubmit="doSearch(); return false;">
 <p>

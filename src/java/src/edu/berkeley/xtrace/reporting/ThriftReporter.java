@@ -134,7 +134,6 @@ public final class ThriftReporter extends Reporter
 	public synchronized void flush() {
 		super.flush();
 		if (client != null) {
-			LOG.debug("Flushing ThriftReporter");
 			try {
 				transport.flush();
 			} catch (TTransportException e) {

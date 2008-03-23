@@ -47,7 +47,7 @@ Search by
     #end
     </td>
     <td>
-      <a href="/graph.rb?taskid=$task.taskId">Applet</a>,
+      <a href="/graph_report.pl?id=$task.taskId">Applet</a>,
       <a href="/graph.rb?taskid=$task.taskId&format=gif">GIF</a>,
       <a href="/graph.rb?taskid=$task.taskId&format=pdf">PDF</a>
     </td>

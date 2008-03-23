@@ -5,11 +5,9 @@
  */
 package edu.berkeley.xtrace.reporting;
 
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Map;
+import java.util.AbstractMap;
 import java.util.HashMap;
-import java.util.Set;
 import java.util.HashSet;
 import com.facebook.thrift.*;
 
@@ -48,16 +46,6 @@ public class XTraceReporter {
     protected TProtocol oprot_;
 
     protected int seqid_;
-
-    public TProtocol getInputProtocol()
-    {
-      return this.iprot_;
-    }
-
-    public TProtocol getOutputProtocol()
-    {
-      return this.oprot_;
-    }
 
     public void ping() throws TException
     {
@@ -186,7 +174,7 @@ public class XTraceReporter {
 
   }
 
-  public static class ping_args implements TBase, java.io.Serializable   {
+  public static class ping_args implements java.io.Serializable   {
     public ping_args() {
     }
 
@@ -225,7 +213,7 @@ public class XTraceReporter {
 
   }
 
-  public static class ping_result implements TBase, java.io.Serializable   {
+  public static class ping_result implements java.io.Serializable   {
     public ping_result() {
     }
 
@@ -265,11 +253,11 @@ public class XTraceReporter {
 
   }
 
-  public static class sendReport_args implements TBase, java.io.Serializable   {
+  public static class sendReport_args implements java.io.Serializable   {
     public String report;
 
     public final Isset __isset = new Isset();
-    public static final class Isset implements java.io.Serializable {
+    public static final class Isset {
       public boolean report = false;
     }
 
@@ -338,7 +326,7 @@ public class XTraceReporter {
 
   }
 
-  public static class sendReport_result implements TBase, java.io.Serializable   {
+  public static class sendReport_result implements java.io.Serializable   {
     public sendReport_result() {
     }
 

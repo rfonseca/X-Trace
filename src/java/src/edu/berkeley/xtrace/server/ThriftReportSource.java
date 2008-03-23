@@ -47,7 +47,6 @@ public class ThriftReportSource implements ReportSource {
 	}
 
 	public void shutdown() {
-		server.stop();
 		serverTransport.close();
 	}
 	

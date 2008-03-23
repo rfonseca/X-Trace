@@ -5,12 +5,13 @@
    	backend server.  See http://www.x-trace.net for more information.
     </description>
 
-	<property name="root.dir"    value="../.." />
+	<property name="root.dir"    value="." />
 	<property name="src.dir"     value="src" />
 	<property name="test.dir"    value="test" />
 	<property name="lib.dir"     value="lib" />
 	<property name="build.dir"   value="build" />
 	<property name="bin.dir"     value="bin" />
+	<property name="thrift-gen.dir" value="../gen-java" />
 	<property name="classes.dir" value="${build.dir}/classes" />
 	<property name="jar.dir"     value="${build.dir}/jar" />
 	<property name="report.dir"  value="${build.dir}/junitreport" />
@@ -37,6 +38,7 @@
 
 	<target name="compile">
 		<mkdir dir="${classes.dir}"/>
+		<javac srcdir="${thrift-gen.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
 		<javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
 		<javac srcdir="${test.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
 	</target>
@@ -109,7 +111,11 @@
 
 		<!-- licenses -->
 		<copy file="${root.dir}/LICENSE.txt" todir="${dist.dir}" />
-		<copy file="${root.dir}/LICENSE.Contributed" todir="${dist.dir}" />
+		<copy todir="${dist.dir}/LICENSE.Contributed">
+		   <fileset dir="${root.dir}/LICENSES.Contributed">
+		      <filename name="**/*" />
+		   </fileset>
+		</copy>
 
 	</target>
 

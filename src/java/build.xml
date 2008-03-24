@@ -81,6 +81,16 @@
 		</junitreport>
 	</target>
 
+	<target name="javadoc" depends="compile"
+	        description="Create Javadoc API documentation">
+	   <mkdir dir="${dist.dir}/docs/api"/>
+	   <javadoc sourcepath="${src.dir}"
+	            destdir="${dist.dir}/docs/api"
+	            packagenames="*">
+	      <classpath refid="compile.classpath"/>
+	   </javadoc>
+	</target>
+
 	<target name="clean-build" depends="clean,jar"/>
 
 	<target name="build-dist" depends="jar">
@@ -106,6 +116,16 @@
 		<copy todir="${dist.dir}/bin">
 		   <fileset dir="${bin.dir}">
 		      <filename name="**/*.sh" />
+		   </fileset>
+		</copy>
+		<chmod dir="${dist.dir}/bin" perm="ugo+rx" 
+		       includes="**/*.sh"/>
+
+		<!-- webui -->
+		<mkdir dir="${dist.dir}/webui" />
+		<copy todir="${dist.dir}/webui">
+		   <fileset dir="${root.dir}/../webui">
+		      <filename name="**/*" />
 		   </fileset>
 		</copy>
 

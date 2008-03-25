@@ -101,7 +101,7 @@ public final class XTraceServer {
 		// then they have to specify the directory in which to store reports
 		if (System.getProperty("xtrace.server.store") == null) {
 			if (args.length < 1) {
-				System.err.println("Usage: Main <dataDir>");
+				System.err.println("Usage: XTraceServer <dataDir>");
 				System.exit(1);
 			}
 			System.setProperty("xtrace.server.storedirectory", args[0]);

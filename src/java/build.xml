@@ -1,114 +1,143 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="X-Trace" default="jar">
-	<description>
-   	The X-Trace Java libraries, front-end daemon, reporting tools, and
-   	backend services.  See http://www.x-trace.net for more information.
+  <description>
+    The X-Trace Java libraries, front-end proxy, reporting tools, and
+    backend server.  See http://www.x-trace.net for more information.
     </description>
 
-	<property name="src.dir"     value="src" />
-	<property name="test.dir"    value="test" />
-	<property name="lib.dir"     value="lib" />
-	<property name="build.dir"   value="build" />
-	<property name="classes.dir" value="${build.dir}/classes" />
-	<property name="jar.dir"     value="${build.dir}/jar" />
-	<property name="report.dir"  value="${build.dir}/junitreport" />
+  <property name="root.dir"    value="." />
+  <property name="src.dir"     value="src" />
+  <property name="test.dir"    value="test" />
+  <property name="lib.dir"     value="lib" />
+  <property name="build.dir"   value="build" />
+  <property name="bin.dir"     value="bin" />
+  <property name="thrift-gen.dir" value="../gen-java" />
+  <property name="classes.dir" value="${build.dir}/classes" />
+  <property name="jar.dir"     value="${build.dir}/jar" />
+  <property name="report.dir"  value="${build.dir}/junitreport" />
+  <property name="dist.dir"    value="${build.dir}/dist" />
+  <property name="archive.dir" value="${build.dir}/archives" />
 
-	<property name="main-class"  value="edu.berkeley.xtrace.server.XTraceServer"/>
-	<property name="jar-name"    value="xtrace-2.0pre.jar"/>
+  <property name="jar-name"    value="xtrace-2.0.jar"/>
 
-	<path id="compile.classpath">
-		<pathelement location="${lib.dir}/je-3.2.44.jar" />
-		<pathelement location="${lib.dir}/jetty-6.1.6.jar" />
-		<pathelement location="${lib.dir}/jetty-util-6.1.6.jar" />
-		<pathelement location="${lib.dir}/log4j-1.2.15.jar" />
-		<pathelement location="${lib.dir}/junit-4.4.jar" />
-		<pathelement location="${lib.dir}/servlet-api-2.5-6.1.6.jar" />
-		<pathelement location="${lib.dir}/derby.jar" />
-		<pathelement location="${lib.dir}/velocity-1.5.jar" />
-		<pathelement location="${lib.dir}/velocity-dep-1.5.jar" />
-		<pathelement location="${lib.dir}/velocity-dep-1.5.jar" />
+  <path id="compile.classpath">
+    <pathelement location="${lib.dir}/jetty-6.1.6.jar" />
+    <pathelement location="${lib.dir}/jetty-util-6.1.6.jar" />
+    <pathelement location="${lib.dir}/log4j-1.2.15.jar" />
+    <pathelement location="${lib.dir}/junit-4.4.jar" />
+    <pathelement location="${lib.dir}/servlet-api-2.5-6.1.6.jar" />
+    <pathelement location="${lib.dir}/derby.jar" />
+    <pathelement location="${lib.dir}/velocity-1.5.jar" />
+    <pathelement location="${lib.dir}/velocity-dep-1.5.jar" />
     <pathelement location="${lib.dir}/libthrift.jar" />
-		<pathelement location="." />
-	</path>
+  </path>
 
-	<path id="run.classpath">
-		<path refid="compile.classpath" />
-		<pathelement location="${jar.dir}/${jar-name}" />
-	</path>
-
-	<target name="clean">
-		<delete dir="${build.dir}"/>
-	</target>
-
-	<target name="compile">
-		<mkdir dir="${classes.dir}"/>
-		<javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
-		<javac srcdir="${test.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
-	</target>
-
-	<target name="jar" depends="compile">
-		<mkdir dir="${jar.dir}"/>
-		<jar destfile="${jar.dir}/${jar-name}" index="true"> 
-			<fileset dir="${classes.dir}"/>
-			<fileset dir="${lib.dir}"/>
-		  <manifest>
-		  	<attribute name="Built-By" value="${user.name}"/>
-		  	<attribute name="Main-Class" value="edu.berkeley.xtrace.server.XTraceServer"/>
-		  </manifest>
-      <zipfileset src="${lib.dir}/derby.jar"/>
-      <zipfileset src="${lib.dir}/velocity-1.5.jar"/>
-      <zipfileset src="${lib.dir}/jetty-6.1.6.jar"/>
-      <zipfileset src="${lib.dir}/junit-4.4.jar"/>
-      <zipfileset src="${lib.dir}/servlet-api-2.5-6.1.6.jar"/>
-      <zipfileset src="${lib.dir}/log4j-1.2.15.jar"/>
-      <zipfileset src="${lib.dir}/jetty-util-6.1.6.jar"/>
-	    <zipfileset src="${lib.dir}/libthrift.jar" />
-		</jar>
-		
+  <target name="clean">
+    <delete dir="${build.dir}"/>
   </target>
 
-	<target name="test" depends="jar">
-		<mkdir dir="${report.dir}" />
-		<junit>
-			<formatter type="brief" usefile="false" />
-			<formatter type="xml" />
+  <target name="compile">
+    <mkdir dir="${classes.dir}"/>
+    <javac srcdir="${thrift-gen.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
+    <javac srcdir="${src.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
+    <javac srcdir="${test.dir}" destdir="${classes.dir}" classpathref="compile.classpath" debug="true" />
+  </target>
 
-			<classpath>
-				<pathelement location="${jar.dir}/${jar-name}" />
-				<pathelement location="${lib.dir}/junit-4.4.jar" />
-				<pathelement location="${lib.dir}/log4j-1.2.15.jar" />
-				<pathelement location="${lib.dir}/derby.jar" />
-			</classpath>
+  <target name="jar" depends="compile">
+    <mkdir dir="${jar.dir}"/>
+    
+    <jar destfile="${jar.dir}/${jar-name}" basedir="${classes.dir}"
+      index="true">
+    </jar>
+  </target>
 
-			<batchtest todir="${report.dir}">
-				<fileset dir="${classes.ir}">
-					<include name="**/*Test.class" />
-				</fileset>
-			</batchtest>
-		</junit>
-	</target>
+  <target name="test" depends="jar">
+    <mkdir dir="${report.dir}" />
+    <junit>
+      <formatter type="brief" usefile="false" />
+      <formatter type="xml" />
 
-	<target name="testreport">
-		<junitreport todir="${report.dir}">
-			<fileset dir="${report.dir}">
-				<include name="TEST-*.xml"/>
-			</fileset>
-			<report format="frames" todir="${report.dir}"/>
-		</junitreport>
-	</target>
+      <classpath>
+        <pathelement location="${jar.dir}/${jar-name}" />
+        <pathelement location="${lib.dir}/junit-4.4.jar" />
+        <pathelement location="${lib.dir}/log4j-1.2.15.jar" />
+        <pathelement location="${lib.dir}/derby.jar" />
+      </classpath>
 
-	<target name="run" depends="jar">
-		<java fork="true" classname="${main-class}">
-			<classpath>
-				<path refid="run.classpath"/>
-				<path id="application" location="${jar.dir}/${jar-name}"/>
-			</classpath>
-		</java>
-	</target>
+      <batchtest todir="${report.dir}">
+        <fileset dir="${classes.dir}">
+          <include name="**/*Test.class" />
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
 
-	<target name="clean-build" depends="clean,jar"/>
+  <target name="testreport">
+    <junitreport todir="${report.dir}">
+      <fileset dir="${report.dir}">
+        <include name="TEST-*.xml"/>
+      </fileset>
+      <report format="frames" todir="${report.dir}"/>
+    </junitreport>
+  </target>
 
-	<target name="main" depends="clean,run"/>
+  <target name="javadoc" depends="compile"
+          description="Create Javadoc API documentation">
+     <mkdir dir="${dist.dir}/docs/api"/>
+     <javadoc sourcepath="${src.dir}"
+              destdir="${dist.dir}/docs/api"
+              packagenames="*">
+        <classpath refid="compile.classpath"/>
+     </javadoc>
+  </target>
+
+  <target name="clean-build" depends="clean,jar"/>
+
+  <target name="build-dist" depends="jar">
+    <mkdir dir="${dist.dir}" />
+
+    <!-- Dependent libraries -->
+    <mkdir dir="${dist.dir}/lib" />
+    <copy todir="${dist.dir}/lib">
+       <fileset dir="${lib.dir}">
+          <filename name="**/*.jar" />
+       </fileset>
+    </copy>
+
+    <!-- X-Trace library -->
+    <copy file="${jar.dir}/${jar-name}" todir="${dist.dir}/lib" />
+
+    <!-- log4j configuration files -->
+    <copy file="${lib.dir}/log4j-server.properties" todir="${dist.dir}/lib" />
+    <copy file="${lib.dir}/log4j-proxy.properties" todir="${dist.dir}/lib" />
+
+    <!-- start-up scripts -->
+    <mkdir dir="${dist.dir}/bin" />
+    <copy todir="${dist.dir}/bin">
+       <fileset dir="${bin.dir}">
+          <filename name="**/*.sh" />
+       </fileset>
+    </copy>
+    <chmod dir="${dist.dir}/bin" perm="ugo+rx" 
+           includes="**/*.sh"/>
+
+    <!-- webui -->
+    <mkdir dir="${dist.dir}/webui" />
+    <copy todir="${dist.dir}/webui">
+       <fileset dir="${root.dir}/../webui">
+          <filename name="**/*" />
+       </fileset>
+    </copy>
+
+    <!-- licenses -->
+    <copy file="${root.dir}/LICENSE.txt" todir="${dist.dir}" />
+    <copy todir="${dist.dir}/LICENSE.Contributed">
+       <fileset dir="${root.dir}/LICENSES.Contributed">
+          <filename name="**/*" />
+       </fileset>
+    </copy>
+
+  </target>
 
 
 </project>

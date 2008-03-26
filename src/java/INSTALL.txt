@@ -1,0 +1,36 @@
+X-Trace Java Distribution 2.0
+
+Installation
+
+X-Trace is a self-contained package, it doesn't need root or admininstrator
+priviledges and doesn't require installing into a system directory. If you want
+to make it more easily accessible, or make the proxy run as a service, take a
+look at the scripts in bin. The distribution doesn't do this at this point.
+
+1. From svn
+
+If you downloaded X-Trace from the svn repository, you can build it from the
+source using ant.  Let <xtrace> be the trunk directory of the repository.
+
+> cd <xtrace>/java
+> ant
+
+The distribution is now in <xtrace>/java/build/dist.
+
+You can also build the documentation by doing
+
+> ant javadoc
+
+The javadoc will be in <xtrace>/java/build/dist/docs/api
+
+2. From the release file
+
+If you obtained a release file, x-trace-2.0-<date>.tar.gz or .zip, extract it into your directory of choice.
+
+Dependencies
+
+All of the dependencies to run X-Trace are included in the distribution.
+For visualizing the results you will need a recent version of Graphviz.
+You will also need to have Java 1.5, ant, Ruby, and Perl.
+
+

@@ -131,6 +131,8 @@
 
     <!-- licenses -->
     <copy file="${root.dir}/LICENSE.txt" todir="${dist.dir}" />
+    <copy file="${root.dir}/README.txt" todir="${dist.dir}" />
+    <copy file="${root.dir}/INSTALL.txt" todir="${dist.dir}" />
     <copy todir="${dist.dir}/LICENSE.Contributed">
        <fileset dir="${root.dir}/LICENSES.Contributed">
           <filename name="**/*" />

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="X-Trace" default="jar">
+<project name="X-Trace" default="build-dist">
   <description>
     The X-Trace Java libraries, front-end proxy, reporting tools, and
     backend server.  See http://www.x-trace.net for more information.
@@ -137,6 +137,8 @@
        </fileset>
     </copy>
 
+    <!-- data dir -->
+    <mkdir dir="${dist.dir}/data" />
   </target>
 
 

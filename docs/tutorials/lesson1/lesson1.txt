@@ -1,0 +1,18 @@
+========================================================
+X-Trace Specification Document: X-Trace Metadata Format
+========================================================
+
+Table of Contents
+=================
+1. Introduction
+2. Setting up X-Trace
+3. Instrumenting the Client code
+4. Instrumenting the Server code
+
+Introduction
+============
+This tutorial is designed to get you started using X-Trace. It will walk through the setup of the backend and the instrumentation of a simple client-server java application.
+
+
+Setting up X-Trace
+==================

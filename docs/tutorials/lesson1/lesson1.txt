@@ -9,6 +9,7 @@ Table of Contents
 3. Instrumenting the Client code
 4. Instrumenting the Server code
 
+
 Introduction
 ============
 This tutorial is designed to get you started using X-Trace. It will walk through the setup of the backend and the instrumentation of a simple client-server java application.
@@ -16,3 +17,12 @@ This tutorial is designed to get you started using X-Trace. It will walk through
 
 Setting up X-Trace
 ==================
+
+
+Instrumenting the Client
+========================
+
+
+
+Instrumenting the Server
+========================

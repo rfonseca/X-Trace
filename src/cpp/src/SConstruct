@@ -1,0 +1,54 @@
+# ----------
+# SConscript
+# ----------
+
+import os.path
+
+
+#env = Environment(CCFLAGS= [ '-O3', '-Wall', '-fPIC'])
+env = Environment(CCFLAGS= [ '-g', '-Wall', '-fPIC'])
+
+headers = ['Xtr.h','XtrMetadata.h',
+           'XtrOption.h','XtrConstants.h',
+           'XtrEvent.h','XtrReporter.h',
+           'XtrContext.h']
+
+code    = ['XtrMetadata.C', 'XtrOption.C','XtrReporter.C','XtrEvent.C','XtrContext.C']
+
+lib_CPP = env.Library(target = 'xtr-cpp',
+                     source = code)
+
+env.Install('../build/lib', lib_CPP);
+env.Install('../build/include',headers);
+
+env.Command('testRunner.C', 
+            code +   headers + ['TestXtr.C'],
+            'cxxtest/cxxtestgen.pl --error-printer -o testRunner.C TestXtr.C');
+
+doc_c = env.Command('../doc/html/index.html', 
+             code + headers + ['Doxyfile'],
+            'doxygen');
+
+env.Program(target = 'testRunner', 
+            source = ['testRunner.C'],
+            CPPPATH = ['../build/include','.',],
+            LIBPATH = '../build/lib',
+            LIBS = 'xtr-cpp' );
+
+env.Command('tests','testRunner','./testRunner');
+
+env.Alias('install-headers','../build/include');
+env.Alias('doc',doc_c)
+env.Default(['install-headers','.'])
+
+testReport = env.Program(target = 'testReport',
+                        source = ['TestReport.C'],
+                        CPPPATH = ['../build/include','.',],
+                        LIBPATH = '../build/lib',
+                        LIBS = 'xtr-cpp' );
+testReportSpeed = env.Program(target = 'testReportSpeed',
+                        source = ['TestReportSpeed.C'],
+                        CPPPATH = ['../build/include','.',],
+                        LIBPATH = '../build/lib',
+                        LIBS = 'xtr-cpp' );
+

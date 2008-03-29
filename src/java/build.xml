@@ -48,6 +48,21 @@
     
     <jar destfile="${jar.dir}/${jar-name}" basedir="${classes.dir}"
       index="true">
+    	<manifest>
+    	  <attribute name="Built-By" value="${user.name}"/>
+    		<attribute name="Main-Class" value="edu.berkeley.xtrace.server.XTraceServer"/>
+     	</manifest>
+      <zipfileset src="${lib.dir}/derby.jar"/>
+      <zipfileset src="${lib.dir}/velocity-1.5.jar"/>
+    	<zipfileset src="${lib.dir}/velocity-dep-1.5.jar"/>
+      <zipfileset src="${lib.dir}/jetty-6.1.6.jar"/>
+      <zipfileset src="${lib.dir}/junit-4.4.jar"/>
+      <zipfileset src="${lib.dir}/servlet-api-2.5-6.1.6.jar"/>
+      <zipfileset src="${lib.dir}/log4j-1.2.15.jar"/>
+      <zipfileset src="${lib.dir}/jetty-util-6.1.6.jar"/>
+      <zipfileset src="${lib.dir}/libthrift.jar" />
+    	
+      <!--<fileset dir="${lib.dir}/" includes="*.properties"/>-->
     </jar>
   </target>
 
@@ -96,21 +111,13 @@
   <target name="build-dist" depends="jar">
     <mkdir dir="${dist.dir}" />
 
-    <!-- Dependent libraries -->
-    <mkdir dir="${dist.dir}/lib" />
-    <copy todir="${dist.dir}/lib">
-       <fileset dir="${lib.dir}">
-          <filename name="**/*.jar" />
-       </fileset>
-    </copy>
-
     <!-- X-Trace library -->
     <copy file="${jar.dir}/${jar-name}" todir="${dist.dir}/lib" />
 
-    <!-- log4j configuration files -->
+  	<!-- log4j configuration files -->
     <copy file="${lib.dir}/log4j-server.properties" todir="${dist.dir}/lib" />
     <copy file="${lib.dir}/log4j-proxy.properties" todir="${dist.dir}/lib" />
-
+  	
     <!-- start-up scripts -->
     <mkdir dir="${dist.dir}/bin" />
     <copy todir="${dist.dir}/bin">
@@ -128,6 +135,7 @@
           <filename name="**/*" />
        </fileset>
     </copy>
+  	<chmod file="${dist.dir}/webui/cgi-bin/graph_report.pl" perm="ugo+rx"/>
 
     <!-- licenses -->
     <copy file="${root.dir}/LICENSE.txt" todir="${dist.dir}" />

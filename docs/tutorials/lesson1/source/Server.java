@@ -1,9 +1,11 @@
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.OutputDataStream;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+
+import protocols.ChatProtocol;
 
 public class Server {
 	public static int PORT = 8888;
@@ -28,7 +30,7 @@ public class Server {
 		System.out.println("Client connection established");
 		
 		/* Setup the input and output for the client connection */
-		PrintWriter out = new PrintWriter(cs.getOutputStream(), true);
+		OutputDataStream out = new OutputDataStream();
 		BufferedReader in = new BufferedReader(
 								new InputStreamReader(
 										cs.getInputStream()));
@@ -36,6 +38,7 @@ public class Server {
 		
 		/* Start talking to the client */
 		while ((inLine = in.readLine()) != null) {
+			inLine = ChatProtocol.unpack(inLine);
 			System.out.println("CLIENT: "+ inLine);
 			String response;
 			if (inLine.equals("exit") || inLine.equals("bye")){
@@ -48,7 +51,7 @@ public class Server {
 					response = "That is interesting.";
 				else response = "Uh huh.";
 			}
-			out.println(response);
+			out.println(ChatProtocol.pack(response));
 			System.out.println("SERVER: " + response);
 		}
 		out.close();

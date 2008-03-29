@@ -32,15 +32,12 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Random;
 
-import org.apache.log4j.Logger;
-
 /**
  * X-trace task ID.
  * 
  * @author George Porter
  */
 public final class TaskID implements Serializable {
-	private static volatile Logger LOG = Logger.getLogger(TaskID.class);
 	private static volatile Random r = null;
 	
 	private byte[] id;
@@ -152,7 +149,7 @@ public final class TaskID implements Serializable {
 			return id;
 			
 		} else {
-			LOG.warn("Invalid length for a task: " + length);
+			System.err.println("Invalid length for a task: " + length);
 			return new TaskID();
 		}
 	}
@@ -169,7 +166,7 @@ public final class TaskID implements Serializable {
 		try {
 			bytes = IoUtil.stringToBytes(s);
 		} catch (IOException e) {
-			LOG.warn("Invalid taskid: " + s);
+			System.err.println("Invalid taskid: " + s);
 			return new TaskID();
 		}
 		

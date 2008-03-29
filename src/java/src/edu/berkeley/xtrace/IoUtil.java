@@ -31,7 +31,7 @@ import java.io.IOException;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-import org.apache.log4j.Logger;
+//import org.apache.log4j.Logger;
 
 /**
  * X-trace input/output utilities.
@@ -40,7 +40,7 @@ import org.apache.log4j.Logger;
  */
 public final class IoUtil
 {
-   private static final Logger LOG = Logger.getLogger(IoUtil.class);
+   //private static final Logger LOG = Logger.getLogger(IoUtil.class);
    private static final char[] hex = "0123456789ABCDEF".toCharArray();
 
    /**
@@ -116,7 +116,7 @@ public final class IoUtil
       try {
          isValid = hex.matches("[0-9A-F]*");
       } catch (final PatternSyntaxException pse) {
-    	  LOG.warn("Internal I/O error", pse);
+    	  //LOG.warn("Internal I/O error", pse);
     	  return false;
       }
 

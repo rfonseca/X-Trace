@@ -4,9 +4,19 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
+import protocols.ChatProtocol;
+
+import edu.berkeley.xtrace.XTraceContext;
+import edu.berkeley.xtrace.XTraceMetadata;
+import edu.berkeley.xtrace.reporting.*;
+
 public class Client{
 	public static int PORT=8888;
 	public static void main(String argv[]) throws IOException{
+
+		/* Setting up X-Tracing */
+		XTraceContext.startTrace("Client", "Run Job: Tutorial 1" , "tutorial");
+		
 		/* Set up the connection to the server */
 		Socket socket = new Socket("localhost", PORT);
 		PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
@@ -22,10 +32,10 @@ public class Client{
 		String input;
 		while (true){
 			input = stdin.readLine();
-			out.println(input);
+			out.println(ChatProtocol.pack(input));
 			
 			inLine = in.readLine();
-			System.out.println(inLine);
+			System.out.println(ChatProtocol.unpack(inLine));
 			if (input.equals("exit") || input.equals("bye")){
 				break;
 			}
@@ -37,4 +47,6 @@ public class Client{
 		stdin.close();
 		socket.close();
 	} 
+	
+
 }

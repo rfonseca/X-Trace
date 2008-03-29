@@ -27,7 +27,7 @@
 
 package edu.berkeley.xtrace.reporting;
 
-import org.apache.log4j.Logger;
+//import org.apache.log4j.Logger;
 
 /**
  * X-trace reporting context framework.  This context is the abstract
@@ -44,7 +44,7 @@ import org.apache.log4j.Logger;
  */
 public abstract class Reporter
 {
-	private static final Logger LOG = Logger.getLogger(Reporter.class);
+	//private static final Logger LOG = Logger.getLogger(Reporter.class);
 
 	static Reporter reporter;
 
@@ -66,15 +66,15 @@ public abstract class Reporter
 				reporter = (Reporter) (Class.forName(systemprop)).newInstance();
 				
 			} catch (InstantiationException e) {
-				LOG.warn("Unable to instantiate reporting class: " + systemprop, e);
+				//LOG.warn("Unable to instantiate reporting class: " + systemprop, e);
 				System.exit(1);
 				
 			} catch (IllegalAccessException e) {
-				LOG.warn("Unable to access reporting class: " + systemprop, e);
+				//LOG.warn("Unable to access reporting class: " + systemprop, e);
 				System.exit(1);
 				
 			} catch (ClassNotFoundException e) {
-				LOG.warn("Unable to find reporting class: " + systemprop, e);
+				//LOG.warn("Unable to find reporting class: " + systemprop, e);
 				System.exit(1);
 			}
 

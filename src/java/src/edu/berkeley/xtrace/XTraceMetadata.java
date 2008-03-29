@@ -48,7 +48,7 @@ import org.apache.log4j.Logger;
  * @author George Porter
  */
 public final class XTraceMetadata {
-	private static final Logger LOG = Logger.getLogger(XTraceMetadata.class);
+	//private static final Logger LOG = Logger.getLogger(XTraceMetadata.class);
 
 	private static final byte[] INVALID_ID = { 0x00, 0x00, 0x00, 0x00 };
 	private static final byte MetadataVersion = 1;
@@ -82,9 +82,9 @@ public final class XTraceMetadata {
 			opId = op;
 		} else {
 			if (id == null || op == null) {
-				LOG.warn("TaskID or opId can't be null");
+				//LOG.warn("TaskID or opId can't be null");
 			} else {
-				LOG.warn("Invalid operation id length: " + op.length);
+				//LOG.warn("Invalid operation id length: " + op.length);
 			}
 			taskid = TaskID.createFromBytes(INVALID_ID, 0, INVALID_ID.length);
 			opId = new byte[] {0x00, 0x00, 0x00, 0x00};
@@ -108,7 +108,7 @@ public final class XTraceMetadata {
 		} else {
 			taskid = TaskID.createFromBytes(INVALID_ID, 0, INVALID_ID.length);
 			this.opId = new byte[] {0x00, 0x00, 0x00, 0x00};
-			LOG.warn("The supplied TaskID was null");
+			//LOG.warn("The supplied TaskID was null");
 		}
 		options = null;
 		numOptions = 0;
@@ -129,7 +129,7 @@ public final class XTraceMetadata {
 		} else {
 			taskid = TaskID.createFromBytes(INVALID_ID, 0, INVALID_ID.length);
 			this.opId = new byte[] {0x00, 0x00, 0x00, 0x00};
-			LOG.warn("The supplied TaskID was null");
+			//LOG.warn("The supplied TaskID was null");
 		}
 		options = null;
 		numOptions = 0;
@@ -175,22 +175,22 @@ public final class XTraceMetadata {
 			final int offset, final int length) {
 
 		if (bytes == null) {
-			LOG.warn("'bytes' was null");
+			//LOG.warn("'bytes' was null");
 			return new XTraceMetadata();
 		}
 		
 		if (offset < 0) {
-			LOG.warn("Invalid 'offset' argument: " + offset);
+			//LOG.warn("Invalid 'offset' argument: " + offset);
 			return new XTraceMetadata();
 		}
 		
 		if (length < 9) {
-			LOG.warn("XTraceMetadata length too short: " + length);
+			//LOG.warn("XTraceMetadata length too short: " + length);
 			return new XTraceMetadata();
 		}
 		
 		if (bytes.length - offset < length) {
-			LOG.warn("Fewer than 'length' bytes given to constructor");
+			//LOG.warn("Fewer than 'length' bytes given to constructor");
 			return new XTraceMetadata();
 		}
 		
@@ -223,7 +223,7 @@ public final class XTraceMetadata {
 		
 		// Make sure the flags don't imply a length that is too long
 		if (taskIdLength + opIdLength > length) {
-			LOG.warn("TaskID length plus OpId length is longer than total length");
+			//LOG.warn("TaskID length plus OpId length is longer than total length");
 			return new XTraceMetadata();
 		}
 		
@@ -241,7 +241,7 @@ public final class XTraceMetadata {
 		
 		// Otherwise, read in the total option length
 		if (length <= 1 + taskIdLength + opIdLength) {
-			LOG.warn("Options present in flags byte, but no total option length given");
+			//LOG.warn("Options present in flags byte, but no total option length given");
 			return new XTraceMetadata();
 		}
 		int totOptLen = bytes[1 + taskIdLength + opIdLength];
@@ -251,7 +251,7 @@ public final class XTraceMetadata {
 			byte type = bytes[optPtr++];
 			byte len = bytes[optPtr++];
 			if (len > totOptLen) {
-				LOG.warn("Invalid option length");
+				//LOG.warn("Invalid option length");
 				break;
 			}
 			
@@ -281,7 +281,7 @@ public final class XTraceMetadata {
 	public static XTraceMetadata createFromString(final String str) {
 		
 		if (str == null) {
-			LOG.warn("null String passed to createFromString");
+			//LOG.warn("null String passed to createFromString");
 			return new XTraceMetadata();
 		}
 		
@@ -289,7 +289,7 @@ public final class XTraceMetadata {
 		try {
 			bytes = IoUtil.stringToBytes(str);
 		} catch (IOException e) {
-			LOG.warn("Invalid X-Trace metadata string: " + str);
+			//LOG.warn("Invalid X-Trace metadata string: " + str);
 			return new XTraceMetadata();
 		}
 		return createFromBytes(bytes, 0, bytes.length);
@@ -487,7 +487,7 @@ public final class XTraceMetadata {
 		try {
 			return IoUtil.bytesToString(opId);
 		} catch (IOException e) {
-			LOG.warn("Internal I/O error", e);
+			//LOG.warn("Internal I/O error", e);
 		}
 		return "0";
 	}
@@ -499,7 +499,7 @@ public final class XTraceMetadata {
 	 */
 	public void setOpId(byte[] newid) {
 		if (newid.length != 4 && newid.length != 8) {
-			LOG.warn("Asked to set an OpId with invalid length: " + newid.length);
+			//LOG.warn("Asked to set an OpId with invalid length: " + newid.length);
 			return;
 		}
 		this.opId = new byte[newid.length];
@@ -537,7 +537,7 @@ public final class XTraceMetadata {
 		try {
 			s = IoUtil.bytesToString(pack());
 		} catch (final IOException e) {
-			LOG.warn("Internal I/O error: ", e);
+			//LOG.warn("Internal I/O error: ", e);
 			return "000000000000000000";
 		}
 

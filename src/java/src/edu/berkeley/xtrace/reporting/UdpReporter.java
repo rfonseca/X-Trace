@@ -35,7 +35,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 
-import org.apache.log4j.Logger;
+//import org.apache.log4j.Logger;
 
 /**
  * X-trace reporting context framework that uses UDP packets sent to
@@ -54,7 +54,7 @@ import org.apache.log4j.Logger;
  */
 public final class UdpReporter extends Reporter
 {
-	private static final Logger LOG = Logger.getLogger(UdpReporter.class);
+	//private static final Logger LOG = Logger.getLogger(UdpReporter.class);
 
 	/* Local report daemon state */
 	private DatagramSocket localSock;
@@ -63,13 +63,13 @@ public final class UdpReporter extends Reporter
 	
 	UdpReporter()
 	{
-		LOG.info("Creating UdpReporter");
+		//LOG.info("Creating UdpReporter");
 		
 		// Setup the local UDP socket
 		try {
 			localSock = new DatagramSocket();
 		} catch (final SocketException se) {
-			LOG.warn("Internal network error", se);
+			//LOG.warn("Internal network error", se);
 			localSock = null;
 			return;
 		}
@@ -84,7 +84,7 @@ public final class UdpReporter extends Reporter
 				udp_ip = split[0];
 				udp_port = split[1];
 			} catch (RuntimeException e) {
-				LOG.warn("Invalid xtrace.udpdest property. Expected host:port.", e);
+				//LOG.warn("Invalid xtrace.udpdest property. Expected host:port.", e);
 			}
 		}
 		
@@ -92,7 +92,7 @@ public final class UdpReporter extends Reporter
 		try {
 			this.localAddr = InetAddress.getByName(udp_ip);
 		} catch (UnknownHostException uhe) {
-			LOG.warn("Unknown host: " + udp_ip, uhe);
+			//LOG.warn("Unknown host: " + udp_ip, uhe);
 			System.exit(1);
 		}
 
@@ -100,7 +100,7 @@ public final class UdpReporter extends Reporter
 		try {
 			this.localPort = Integer.parseInt(udp_port);
 		} catch (NumberFormatException nfe) {
-			LOG.warn("Invalid UDP port: " + udp_port, nfe);
+			//LOG.warn("Invalid UDP port: " + udp_port, nfe);
 			System.exit(1);
 		}
 	}
@@ -141,7 +141,7 @@ public final class UdpReporter extends Reporter
 		try {
 			localSock.send(pkt);
 		} catch (final IOException e) {
-			LOG.warn("Unable to send report", e);
+			//LOG.warn("Unable to send report", e);
 		}
 	}
 }

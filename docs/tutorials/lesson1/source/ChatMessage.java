@@ -9,23 +9,17 @@ import java.util.Date;
 public class ChatMessage implements Serializable{
 	String message;
 	Date currDate;
+	byte[] xtraceMD;
 	
 	public ChatMessage(){}
-	public ChatMessage(String msg){
-		load(msg);
-	}
 	
-	public void load(String msg){
+	public ChatMessage(String msg){
 		message = msg;
 		currDate = new Date();
 	}
-
-	public String getMessage(){
-		return message;
-	}
 	
 	public String getTime(){
-		return currDate.getHours() + ":" + currDate.getMinutes();
+		return currDate.getHours() + ":" + currDate.getMinutes() + ":" + currDate.getSeconds();
 	}
 	
 }

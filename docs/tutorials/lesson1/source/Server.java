@@ -6,6 +6,9 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.ObjectInputStream;
 
+//import edu.berkeley.xtrace.XTraceContext;
+//import edu.berkeley.xtrace.XTraceMetadata;
+
 public class Server {
 	public static int PORT = 8888;
 	public static void main(String[] args) throws IOException, ClassNotFoundException{
@@ -34,15 +37,18 @@ public class Server {
 
 		/* Start talking to the client */
 		ChatMessage msgObjIn = new ChatMessage();
-		ChatMessage msgObjOut = new ChatMessage();
 		while (true) {
-			/* get a message from client */
+			/* get a message from client and show it on stdout */
 			msgObjIn = (ChatMessage) in.readObject();
-			String msg = msgObjIn.getMessage();
-			System.out.println("CLIENT: "+ msg);
+			String msg = msgObjIn.message;
+			//XTraceContext.setThreadContext(XTraceMetadata.createFromBytes(msgObjIn.xtraceMD,0,16));
+			//XTraceContext.logEvent("ChatServer", "ReceivedClientsMessage");
+			System.out.println("CLIENT ("+ msgObjIn.getTime() + "): " + msg);
+			
+			/* either exit or create a generic response */
 			String response;
 			if (msg.equals("exit") || msg.equals("bye")){
-				response = "See you later.";
+				System.out.println("Received command to terminate connection");
 				break;
 			} else {
 				if (Math.random() < 0.3)
@@ -51,9 +57,14 @@ public class Server {
 					response = "That is interesting.";
 				else response = "Uh huh.";
 			}
-			msgObjOut.load(response);
+			
+			/* send response to the client */
+			ChatMessage msgObjOut = new ChatMessage(response);
+			//XTraceContext.logEvent("ChatServer", "SendingMessage", "Message", msgObjOut.message);
+			//msgObjOut.xtraceMD = XTraceContext.getThreadContext().pack();
 			out.writeObject(msgObjOut);
-			System.out.println("SERVER: " + response);
+			System.out.println("SERVER ("+ msgObjOut.getTime() + "): " + response + "\n");
+			msgObjOut = null;			
 		}
 		out.close();
 		in.close();

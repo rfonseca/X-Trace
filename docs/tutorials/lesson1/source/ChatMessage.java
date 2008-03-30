@@ -9,7 +9,7 @@ import java.util.Date;
 public class ChatMessage implements Serializable{
 	String message;
 	Date currDate;
-	byte[] xtraceMD;
+	//byte[] xtraceMD;
 	
 	public ChatMessage(){}
 	

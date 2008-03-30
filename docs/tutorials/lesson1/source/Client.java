@@ -1,41 +1,43 @@
+package source;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-import protocols.ChatProtocol;
-
 import edu.berkeley.xtrace.XTraceContext;
-import edu.berkeley.xtrace.XTraceMetadata;
-import edu.berkeley.xtrace.reporting.*;
 
 public class Client{
 	public static int PORT=8888;
-	public static void main(String argv[]) throws IOException{
+	public static void main(String argv[]) throws IOException, ClassNotFoundException{
 
 		/* Setting up X-Tracing */
 		XTraceContext.startTrace("Client", "Run Job: Tutorial 1" , "tutorial");
 		
 		/* Set up the connection to the server */
-		Socket socket = new Socket("localhost", PORT);
-		PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-		BufferedReader in = new BufferedReader(
-								new InputStreamReader(socket.getInputStream()));
+		Socket s = new Socket("localhost", PORT);
+		ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
+		ObjectInputStream in = new ObjectInputStream(s.getInputStream());
 		
 		/* Setup up input from the client user */
 		BufferedReader stdin = new BufferedReader(
 									new InputStreamReader(System.in));
 		
 		/* Talk to the server */
-		String inLine;
+		ChatMessage msgObjIn = new ChatMessage();
+		ChatMessage msgObjOut = new ChatMessage();
 		String input;
 		while (true){
-			input = stdin.readLine();
-			out.println(ChatProtocol.pack(input));
+			/* Get input from user and send it */
+			msgObjOut.load(stdin.readLine());
+			out.writeObject(msgObjOut);
 			
-			inLine = in.readLine();
-			System.out.println(ChatProtocol.unpack(inLine));
+			/* Collect reply message from server and display it to user */
+			msgObjIn = (ChatMessage) in.readObject();
+			input = msgObjIn.getMessage();
+			System.out.println(input);
 			if (input.equals("exit") || input.equals("bye")){
 				break;
 			}
@@ -45,7 +47,7 @@ public class Client{
 		out.close();
 		in.close();
 		stdin.close();
-		socket.close();
+		s.close();
 	} 
 	
 

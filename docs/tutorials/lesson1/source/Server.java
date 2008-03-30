@@ -1,15 +1,14 @@
+package source;
+
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.IOException;
-import java.io.OutputDataStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
-import protocols.ChatProtocol;
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
 
 public class Server {
 	public static int PORT = 8888;
-	public static void main(String[] args) throws IOException{
+	public static void main(String[] args) throws IOException, ClassNotFoundException{
 		/* Set up a server */
 		ServerSocket ss = new ServerSocket();
 		try {
@@ -30,18 +29,19 @@ public class Server {
 		System.out.println("Client connection established");
 		
 		/* Setup the input and output for the client connection */
-		OutputDataStream out = new OutputDataStream();
-		BufferedReader in = new BufferedReader(
-								new InputStreamReader(
-										cs.getInputStream()));
-		String inLine;
-		
+		ObjectOutputStream out = new ObjectOutputStream(cs.getOutputStream());
+		ObjectInputStream in = new ObjectInputStream(cs.getInputStream());
+
 		/* Start talking to the client */
-		while ((inLine = in.readLine()) != null) {
-			inLine = ChatProtocol.unpack(inLine);
-			System.out.println("CLIENT: "+ inLine);
+		ChatMessage msgObjIn = new ChatMessage();
+		ChatMessage msgObjOut = new ChatMessage();
+		while (true) {
+			/* get a message from client */
+			msgObjIn = (ChatMessage) in.readObject();
+			String msg = msgObjIn.getMessage();
+			System.out.println("CLIENT: "+ msg);
 			String response;
-			if (inLine.equals("exit") || inLine.equals("bye")){
+			if (msg.equals("exit") || msg.equals("bye")){
 				response = "See you later.";
 				break;
 			} else {
@@ -51,7 +51,8 @@ public class Server {
 					response = "That is interesting.";
 				else response = "Uh huh.";
 			}
-			out.println(ChatProtocol.pack(response));
+			msgObjOut.load(response);
+			out.writeObject(msgObjOut);
 			System.out.println("SERVER: " + response);
 		}
 		out.close();

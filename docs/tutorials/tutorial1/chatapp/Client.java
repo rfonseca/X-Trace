@@ -16,7 +16,7 @@ public class Client{
 	public static void main(String argv[]) throws IOException, ClassNotFoundException{
 
 		/* Setting up X-Tracing */
-		//XTraceContext.startTrace("ChatClient", "Run Job: Tutorial 1" , "tutorial");
+		//XTraceContext.startTrace("ChatClient", "Run Tutorial 1" , "tutorial");
 		
 		/* Set up the connection to the server */
 		Socket s = new Socket("localhost", PORT);

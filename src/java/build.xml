@@ -136,7 +136,8 @@
        </fileset>
     </copy>
   	<chmod file="${dist.dir}/webui/cgi-bin/graph_report.pl" perm="ugo+rx"/>
-
+  	<chmod file="${dist.dir}/webui/cgi-bin/graph.rb" perm="ugo+rx"/>
+  	
     <!-- licenses -->
     <copy file="${root.dir}/LICENSE.txt" todir="${dist.dir}" />
     <copy file="${root.dir}/README.txt" todir="${dist.dir}" />
@@ -149,6 +150,14 @@
 
     <!-- data dir -->
     <mkdir dir="${dist.dir}/data" />
+    
+  	<!-- documentation -->
+    <mkdir dir="${dist.dir}/docs" />
+    <copy todir="${dist.dir}/docs">
+       <fileset dir="${root.dir}/../../docs">
+          <exclude name="**/*.class" />
+       </fileset>
+    </copy>
   </target>
 
 

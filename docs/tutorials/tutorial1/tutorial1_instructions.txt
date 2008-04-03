@@ -1,6 +1,6 @@
-========================================================
-X-Trace Specification Document: X-Trace Metadata Format
-========================================================
+=============================================================
+X-Trace Tutorial 1 - Application Instrumentation Walkthrough
+=============================================================
 :Authors: Andy Konwinski
 :Last-Edited: 28-Mar-2008
 
@@ -8,77 +8,105 @@ Table of Contents
 =================
 1. Introduction
 2. Setting up X-Trace
-3. Instrumenting the Client code
-4. Instrumenting the Server code
-
+3. Compile and run Client and Server application
+4. Instrument the communication protocol
+5. Instrument the Client with X-Trace
+6. Instrument the Server with X-Trace
 
 Introduction
 ============
-This tutorial is designed to get you started using X-Trace. It will walk through the setup of the backend and the instrumentation of a simple client-server java application.
+This tutorial is designed to walk you through the X-Trace instrumentation of a simple client-server java application, starting with the setup of the backend, and working through the insertion of real X-Trace report statements.
 
 
 Setting up X-Trace
 ==================
-1. Download and uncompress the X-trace distribution from http://sourceforge.net/projects/xtraceprj/
-2. from inside the uncompressed directory, run bin/backend.sh
+1. Download and uncompress the X-trace distribution from http://sourceforge.net/projects/xtraceprj/, for the rest of this example we'll extract it into /tmp/xtrace
+2. run /tmp/xtrace/bin/backend.sh
 3. log into http://localhost:8080 to view the X-Trace backend web interface
 
 
 Compile and run Client and Server application
 =============================================
-1. change your current directory to docs/tutorials/lesson1/source/
-2. run: javac Client.java
-3. run: javac Server.java
-4. run: java Client
-5. run: java Server
-6. Try out sending commands using the client, you should see responses from the server
+1. change your current directory to /tmp/xtrace/docs/tutorials/tutorial1/, then run the following:::
+
+     javac chatapp/Client.java
+     javac chatapp/Server.java
+     javac chatapp/ChatMessage.java
+     java chatapp.Server
+     java chatapp.Client /* do this in a different terminal */
 
 
-Instrumenting the communication protocol
+2. Try out sending messages using the client, you should see responses from the server
+
+
+Instrument the communication protocol
 ========================================
-1. Add the X-Trace metadata to the messages our application uses, uncomment the metadata class member which looks like this:
-  a. byte[] xtraceMD;
+1. Add the X-Trace metadata to the messages our application uses, uncomment the metadata class member which looks like this:::
+
+     byte[] xtraceMD;
 
 
 Instrument the Client with X-Trace
 ==================================
 1. Open docs/tutorials/lesson1/source/Client.java, we will be adding (by uncommenting) 7 lines of code to this class...
-2. At the beginning of the file, uncomment the following lines of code to import the X-Trace classes we'll use to instrument thei Client class:
-  a. import edu.berkeley.xtrace.XTraceContext;
-  b. import edu.berkeley.xtrace.XTraceMetadata;
-3. Setup the trace and first report generation by uncommenting the following line of code at the top of the main() function in the Client class
-  a. XTraceContext.startTrace("Client", "Run Tutorial 1" , "tutorial");
-4. Uncomment the following two lines of code which are instrumentation points that will be triggered to send X-Trace reports with each message the client sends to the server:
-  a. XTraceContext.logEvent("ChatClient", "SendUsersMessage", "Message", msgObjOut.message);
+
+2. At the beginning of the file, uncomment the following lines of code to import the X-Trace classes we'll use to instrument their Client class:::
+
+     import edu.berkeley.xtrace.XTraceContext;
+     import edu.berkeley.xtrace.XTraceMetadata;
+
+3. Setup the trace and first report generation by uncommenting the following line of code at the top of the main() function in the Client class:::
+
+     XTraceContext.startTrace("Client", "Run Tutorial 1" , "tutorial");
+  
+4. Uncomment the following two lines of code which are instrumentation points that will be triggered to send X-Trace reports with each message the client sends to the server:::
+
+     XTraceContext.logEvent("ChatClient", "SendUsersMessage", "Message", msgObjOut.message);
      msgObjOut.xtraceMD = XTraceContext.getThreadContext().pack();
-5. Uncoment two more lines of code which are the instrumentation points that will send a report
-  a. XTraceContext.setThreadContext(XTraceMetadata.createFromBytes(msgObjIn.xtraceMD,0,16));
+     
+5. Uncoment two more lines of code which are the instrumentation points that will send a report:::
+
+     XTraceContext.setThreadContext(XTraceMetadata.createFromBytes(msgObjIn.xtraceMD,0,16));
      XTraceContext.logEvent("ChatClient", "ReceivedServersMessage");
+     
 6. Compile Client.java, you will need to include the location of the x-trace
-  a. run: javac -cp path/to/xtrace/dir/lib/xtrace-2.0.jar:. chatapp/Client.java
+
+  a. run: javac -cp /tmp/xtrace/lib/xtrace-2.0.jar:. chatapp/Client.java
 
 Instrument the Server with X-Trace
 ==================================
 1. Open docs/tutorials/lesson1/source/Server.java, we will be adding 4 lines of code to this class...
-2. At the beginning of the file, uncomment the following lines of code to import the X-Trace classes we'll use to instrument thei Client class:
-  a. import edu.berkeley.xtrace.XTraceContext;
-  b. import edu.berkeley.xtrace.XTraceMetadata;
-3. Uncomment the following two lines of code which are instrumentation points that will be triggered to send X-Trace reports with each message that is recieved from the client:
-  a. XTraceContext.setThreadContext(XTraceMetadata.createFromBytes(msgObjIn.xtraceMD,0,16));
+
+2. At the beginning of the file, uncomment the following lines of code to import the X-Trace classes we'll use to instrument thei Client class:::
+
+     import edu.berkeley.xtrace.XTraceContext;
+     import edu.berkeley.xtrace.XTraceMetadata;
+
+3. Uncomment the following two lines of code which are instrumentation points that will be triggered to send X-Trace reports with each message that is recieved from the client:::
+
+     XTraceContext.setThreadContext(XTraceMetadata.createFromBytes(msgObjIn.xtraceMD,0,16));
      XTraceContext.logEvent("ChatServer", "ReceivedClientsMessage");
-4. Uncoment the two lines of code which are the instrumentation points that will send a report whenever the server replies to the client with a message:
-  a. XTraceContext.logEvent("ChatServer", "SendingMessage", "Message", msgObjOut.message);
+
+4. Uncoment the two lines of code which are the instrumentation points that will send a report whenever the server replies to the client with a message:::
+
+     XTraceContext.logEvent("ChatServer", "SendingMessage", "Message", msgObjOut.message);
      msgObjOut.xtraceMD = XTraceContext.getThreadContext().pack();
-5. Compile Server.java, you will need to include the location of the x-trace
-  a. run: javac -cp path/to/xtrace/dir/lib/xtrace-2.0.jar:. chatapp/server.java
+
+5. Compile Server.java, you will need to include the location of the x-trace:::
+     
+     javac -cp /tmp/xtrace/lib/xtrace-2.0.jar:. chatapp/server.java
 
 
 Collect some traces!
 ====================
-1. Run the Server
-  a. from within docs/tutorials/tutorial1, run: java -cp path/to/xtrace/dir/lib/xtrace-2.0.jar:. chatapp.Server
-2. Run the Client
-  a. from within docs/tutorials/tutorial1, run: java -cp path/to/xtrace/dir/lib/xtrace-2.0.jar:. chatapp.Client
+1. Run the Server, from within docs/tutorials/tutorial1:::
+     
+     java -cp /tmp/xtrace/lib/xtrace-2.0.jar:. chatapp.Server
+
+2. Run the Client, from within docs/tutorials/tutorial1:::
+     
+     java -cp /tmp/xtrace/lib/xtrace-2.0.jar:. chatapp.Client
+
 3. Try it out, type come messages and see the Server's responses
   
 View the X-Trace Graphs

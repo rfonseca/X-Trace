@@ -26,6 +26,7 @@ public class Client{
 		/* Setup up input from the client user */
 		BufferedReader stdin = new BufferedReader(
 									new InputStreamReader(System.in));
+		System.out.println("Welcome to the X-Trace tutorial 1 chat app client, type bye to exit");
 		
 		/* Talk to the server */
 		ChatMessage msgObjIn = new ChatMessage();

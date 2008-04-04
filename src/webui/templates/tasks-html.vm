@@ -49,7 +49,8 @@ Search by
     <td>
       <a href="/graph_report.pl?id=$task.taskId">Applet</a>,
       <a href="/graph.rb?taskid=$task.taskId&format=gif">GIF</a>,
-      <a href="/graph.rb?taskid=$task.taskId&format=pdf">PDF</a>
+      <a href="/graph.rb?taskid=$task.taskId&format=pdf">PDF</a>#if($task.tags.contains("hadoop")),
+      <a href="/hadoop-analysis.rb?taskid=$task.taskId">Hadoop Trace Analysis</a>#end
     </td>
   </tr>
 #end

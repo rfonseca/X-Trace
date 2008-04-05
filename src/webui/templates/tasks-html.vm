@@ -1,6 +1,3 @@
-## Render a list of tasks, in $tasks, as HTML. The page title is $title. If
-## $showStats is true, also show database statistics, obtained through the
-## QueryableReportStore bound to $reportStore.
 <html>
 <head><title>X-Trace Viewer - $title<title></head>
 <body>

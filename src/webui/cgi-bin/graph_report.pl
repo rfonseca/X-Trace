@@ -147,10 +147,10 @@ if (defined $mode && $mode eq 'i') {
     print `$DOT_CMD $dotname -Tsvg`;
 } elsif (defined $mode && $mode eq 'p') {
     print header('image/png');
-    print `dot $dotname -Tpng`;
+    print `$DOT_CMD $dotname -Tpng`;
 } elsif (defined $mode && $mode eq 'pdf') {
     print header('application/pdf');
-    print `dot -Gratio=compress -Gsize="100,20" -Nfontsize=4 -Efontsize=4 $dotname -Tpdf`;
+    print `$DOT_CMD -Gratio=compress -Gsize="100,20" -Nfontsize=4 -Efontsize=4 $dotname -Tpdf`;
 } elsif (defined $mode && $mode eq 'd') {
     print header('text/plain');
     print `cat $dotname`;

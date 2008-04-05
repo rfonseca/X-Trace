@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="X-Trace" default="build-dist">
+<project name="X-Trace" default="archive-dist">
   <description>
     The X-Trace Java libraries, front-end proxy, reporting tools, and
     backend server.  See http://www.x-trace.net for more information.
@@ -16,9 +16,11 @@
   <property name="jar.dir"     value="${build.dir}/jar" />
   <property name="report.dir"  value="${build.dir}/junitreport" />
   <property name="dist.dir"    value="${build.dir}/dist" />
+  <property name="ec2dist.dir" value="${build.dir}/dist-ec2" />
   <property name="archive.dir" value="${build.dir}/archives" />
 
-  <property name="jar-name"    value="xtrace-2.0.jar"/>
+  <property name="xtrace-name" value="xtrace-2.0" />
+  <property name="jar-name"    value="${xtrace-name}.jar"/>
 
   <path id="compile.classpath">
     <pathelement location="${lib.dir}/jetty-6.1.6.jar" />
@@ -96,8 +98,7 @@
     </junitreport>
   </target>
 
-  <target name="javadoc" depends="compile"
-          description="Create Javadoc API documentation">
+  <target name="javadoc" depends="compile">
      <mkdir dir="${dist.dir}/docs/api"/>
      <javadoc sourcepath="${src.dir}"
               destdir="${dist.dir}/docs/api"
@@ -108,7 +109,7 @@
 
   <target name="clean-build" depends="clean,jar"/>
 
-  <target name="build-dist" depends="jar">
+  <target name="build-dist" depends="jar,javadoc">
     <mkdir dir="${dist.dir}" />
 
     <!-- X-Trace library -->
@@ -120,11 +121,8 @@
   	
     <!-- start-up scripts -->
     <mkdir dir="${dist.dir}/bin" />
-    <copy todir="${dist.dir}/bin">
-       <fileset dir="${bin.dir}">
-          <filename name="**/*.sh" />
-       </fileset>
-    </copy>
+    <copy file="${bin.dir}/backend.sh" todir="${dist.dir}/bin" />
+    <copy file="${bin.dir}/proxy.sh" todir="${dist.dir}/bin" />
     <chmod dir="${dist.dir}/bin" perm="ugo+rx" 
            includes="**/*.sh"/>
 
@@ -158,6 +156,72 @@
           <exclude name="**/*.class" />
        </fileset>
     </copy>
+  </target>
+
+  <target name="build-ec2-dist" depends="jar">
+    <mkdir dir="${ec2dist.dir}" />
+
+    <!-- X-Trace library -->
+    <copy file="${jar.dir}/${jar-name}" todir="${ec2dist.dir}/lib" />
+
+  	<!-- log4j configuration files -->
+    <copy file="${lib.dir}/log4j-server-ec2.properties" tofile="${ec2dist.dir}/lib/log4j-server.properties" />
+    <copy file="${lib.dir}/log4j-proxy-ec2.properties" tofile="${ec2dist.dir}/lib/log4j-proxy.properties" />
+  	
+    <!-- start-up scripts -->
+    <mkdir dir="${ec2dist.dir}/bin" />
+    <copy file="${bin.dir}/backend-ec2.sh" tofile="${ec2dist.dir}/bin/backend.sh" />
+    <copy file="${bin.dir}/proxy-ec2.sh" tofile="${ec2dist.dir}/bin/proxy.sh" />
+    <chmod dir="${ec2dist.dir}/bin" perm="ugo+rx" 
+           includes="**/*.sh"/>
+
+    <!-- webui -->
+    <mkdir dir="${ec2dist.dir}/webui" />
+    <copy todir="${ec2dist.dir}/webui">
+       <fileset dir="${root.dir}/../webui">
+          <filename name="**/*" />
+       </fileset>
+    </copy>
+  	<chmod file="${ec2dist.dir}/webui/cgi-bin/graph_report.pl" perm="ugo+rx"/>
+  	<chmod file="${ec2dist.dir}/webui/cgi-bin/graph.rb" perm="ugo+rx"/>
+  	
+    <!-- licenses -->
+    <copy file="${root.dir}/LICENSE.txt" todir="${ec2dist.dir}" />
+    <copy file="${root.dir}/README.txt" todir="${ec2dist.dir}" />
+    <copy file="${root.dir}/INSTALL.txt" todir="${ec2dist.dir}" />
+    <copy todir="${ec2dist.dir}/LICENSE.Contributed">
+       <fileset dir="${root.dir}/LICENSES.Contributed">
+          <filename name="**/*" />
+       </fileset>
+    </copy>
+
+  	<!-- documentation -->
+    <mkdir dir="${ec2dist.dir}/docs" />
+    <copy todir="${ec2dist.dir}/docs">
+       <fileset dir="${root.dir}/../../docs">
+          <exclude name="**/*.class" />
+       </fileset>
+    </copy>
+  </target>
+
+  <target name="archive-dist" depends="build-dist">
+     <mkdir dir="${archive.dir}" />
+     <zip destfile="${archive.dir}/${xtrace-name}.zip">
+        <zipfileset dir="${dist.dir}" prefix="${xtrace-name}"/>
+     </zip>
+     <tar destfile="${archive.dir}/${xtrace-name}.tar.gz" compression="gzip">
+       <zipfileset src="${archive.dir}/${xtrace-name}.zip"/>
+     </tar>
+  </target>
+
+  <target name="archive-ec2-dist" depends="build-ec2-dist">
+     <mkdir dir="${archive.dir}" />
+     <zip destfile="${archive.dir}/${xtrace-name}-ec2.zip">
+        <zipfileset dir="${ec2dist.dir}" prefix="${xtrace-name}-ec2"/>
+     </zip>
+     <tar destfile="${archive.dir}/${xtrace-name}-ec2.tar.gz" compression="gzip">
+       <zipfileset src="${archive.dir}/${xtrace-name}-ec2.zip"/>
+     </tar>
   </target>
 
 

@@ -246,7 +246,7 @@ public final class XTraceServer {
 			Velocity.setProperty(Velocity.RUNTIME_LOG_LOGSYSTEM_CLASS,
 					"org.apache.velocity.runtime.log.Log4JLogChute");
 			Velocity.setProperty("runtime.log.logsystem.log4j.logger",
-					"edu.berkeley.xtrace.server.Main");
+					"edu.berkeley.xtrace.server.XTraceServer");
 			Velocity.setProperty("file.resource.loader.path", webDir + "/templates");
 			Velocity.setProperty("file.resource.loader.cache", "true");
 			Velocity.init();

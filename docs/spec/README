@@ -1,0 +1,9 @@
+Instructions for generating html:
+
+Required: python docutils
+
+Sample command line:
+rst2html --stylesheet=spec-css.css --link-stylesheet <name>.txt <name>.html
+
+
+

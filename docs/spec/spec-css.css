@@ -1,0 +1,29 @@
+/*
+:Author: Your Name
+:Contact: Your Email Address
+:Copyright: This stylesheet has been placed in the public domain.
+
+Stylesheet for use with Docutils.  [Optionally place a more
+detailed description here.]
+*/
+
+@import url(html4css1.css);
+
+/* Your customizations go here.  For example: */
+
+h1 {
+    font-size: 1.5em 
+}
+h2 {
+    font-size:1.3em
+}
+h3 {
+    font-size:1.1em
+}
+h4,h5,h6 {
+    font-size:1em
+}
+h1, h2, h3, h4, h5, h6, p.topic-title {
+  font-family: sans-serif }
+
+

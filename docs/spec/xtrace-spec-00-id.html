@@ -1,0 +1,582 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.5: http://docutils.sourceforge.net/" />
+<title></title>
+<link rel="stylesheet" href="spec-css.css" type="text/css" />
+</head>
+<body>
+<div class="document">
+
+
+<div class="section" id="x-trace-specification-document-x-trace-metadata-format">
+<h1>X-Trace Specification Document: X-Trace Metadata Format</h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Authors:</th><td class="field-body">Rodrigo Fonseca, George Porter</td>
+</tr>
+<tr class="field"><th class="field-name">Draft-Created:</th><td class="field-body">18-Jul-2006</td>
+</tr>
+<tr class="field"><th class="field-name">Last-Edited:</th><td class="field-body">07-Apr-2008</td>
+</tr>
+<tr class="field"><th class="field-name" colspan="2">Specification Version:</th></tr>
+<tr><td>&nbsp;</td><td class="field-body">2.1.1</td>
+</tr>
+<tr class="field"><th class="field-name">Revision:</th><td class="field-body">svn 53</td>
+</tr>
+</tbody>
+</table>
+<div class="note">
+<p class="first admonition-title">Note</p>
+<p class="last">This version of this specification document is 2.1.1, and it specifies
+the X-Trace metadata version 1. The X-Trace metadata version is the
+version number that is encoded in the metadata itself, and is independent
+of the version (2.1.1) of this document.</p>
+</div>
+</div>
+<div class="section" id="summary">
+<h1>Summary</h1>
+<p>This document describes the X-Trace metadata format version 1, and how it is
+encoded in both binary and textual form. It also describes the
+mandatory fields, and the format of optional fields. Separate documents
+describe individual options, including how they are represented,
+propagated, and how they relate to X-Trace reports.</p>
+<div class="section" id="introduction">
+<h2>1. Introduction</h2>
+<p>X-Trace <a class="footnote-reference" href="#id3" id="id1">[1]</a> is a framework for tracing the execution of distributed systems.
+It provides a logging-like API for the programmer, allowing the recording of
+events during the execution. X-Trace records the causal relations among these
+events in a deterministic fashion, across threads, software layers, different
+machines, and potentially different network layers and administrative domains.
+X-Trace groups events (which we also call operations) in tasks, which are sets
+of causally related events with a definite start. Events in a task form a
+directed acyclic graph (DAG). Each task is given a unique task identifier, and
+each event within a task is given an identifier which is unique within the
+task.</p>
+<p>X-Trace tracks the causal relation among events by propagating a constant-sized
+metadata along with the execution, both in messages exchanged by the different
+components and within the components themselves. The metadata contains the task
+identifier of the current task, and the last event recorded in the current
+execution sequence. Each event is reported to a separate reporting
+infrastructure, and each report records the identifier of the current event, as
+well as the identifier(s) of the event(s) that caused the current event. The
+reports contain other information in the form of key/value pairs.  The format
+of these reports is described in the accompanying specification <a class="footnote-reference" href="#id4" id="id2">[2]</a>.</p>
+<p>The X-Trace metadata has two mandatory components, and a set of optional ones,
+described in their own specifications.  The first mandatory component is a
+<strong>Task Identifier</strong>, or TaskId, which uniquely identifies a task (in the
+context of a reporting infrastructure and during a finite window of time). The
+TaskId is the same across all operations comprising a task, and serves the
+purpose of identifying all such operations as belonging to the task.  The
+second component is called the <strong>Operation Identifier</strong>, or OpID, and should be
+unique for each operation or event within the task. The OpID identifies the
+operation that generated the metadata, and is used by the subsequent
+operation(s) to record the causal relationship between the two operations by
+means of reporting.</p>
+<p>There are also optional fields, which may or may not be present, and enhance
+the functionality of the X-Trace framework. At the time of this writing, there
+are three types of options defined, but more can be added in the future. They
+are the Destination option, for specifying where to send reports if not to a
+default location; the ChainId option, to explicitly indicate concurrent chains
+of events; and the Severity option, that indicates how important it is to
+record events related to a particular task.</p>
+<p>This document specifies in detail the layout and meaning of the X-Trace
+Metadata how it is represented in binary and textual form, and how it is
+propagated in the same and between adjacent layers. It does not discuss
+reporting in detail, nor how to implement the propagation. It is also beyond
+the scope of this document how different protocols include X-Trace Metadata
+associated to their respective protocol data units.</p>
+</div>
+<div class="section" id="x-trace-metadata-binary-representation">
+<h2>2. X-Trace Metadata Binary Representation</h2>
+<p>The X-Trace Metadata (XTR-Md) is represented in a compact wire format by the
+following byte layout.  This layout is used when the XTR-Md is encoded in
+binary protocols, as is the case of the encodings of XTR-Md in IP options and
+in TCP options. A hexadecimal textual representation of this binary layout is
+also used when XTR-Md is encoded in text-based protocols, as is the case of
+HTTP and SIP, for example.</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="37%" />
+<col width="63%" />
+</colgroup>
+<tbody valign="top">
+<tr><td>Flags:</td>
+<td>1 byte</td>
+</tr>
+<tr><td>TaskId:</td>
+<td>4, 8, 12, or 20 bytes</td>
+</tr>
+<tr><td>OpId:</td>
+<td>4 or 8 bytes</td>
+</tr>
+<tr><td colspan="2">Options Block (optional):</td>
+</tr>
+<tr><td>OptionsLen:</td>
+<td>1 byte</td>
+</tr>
+<tr><td>Options:</td>
+<td>OptionsLen bytes</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<p>The only mandatory fields are flags, TaskId, and OpId. The other fields are
+optional.</p>
+<div class="section" id="flags">
+<h3>2.1 Flags</h3>
+<p>There are 8 bits (1 byte) allocated for flags. The bits are
+presented here with 7 being the most significant bit and 0 the least
+significant bit.</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">7</th>
+<th class="head">6</th>
+<th class="head">5</th>
+<th class="head">4</th>
+<th class="head">3</th>
+<th class="head">2</th>
+<th class="head">1</th>
+<th class="head">0</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td colspan="4">Version</td>
+<td>0</td>
+<td>O</td>
+<td colspan="2">IdLen</td>
+</tr>
+</tbody>
+</table>
+<table border="1" class="docutils">
+<colgroup>
+<col width="6%" />
+<col width="20%" />
+<col width="74%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Bit</th>
+<th class="head">Name</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>0-1</td>
+<td>IdLen</td>
+<td>Encodes the length of the TaskId</td>
+</tr>
+<tr><td>2</td>
+<td>O   Option</td>
+<td>Whether there are option fields present</td>
+</tr>
+<tr><td>3</td>
+<td>OpIdLen</td>
+<td>If 0, OpIdLen = 4, if 1, OpIdLen = 8</td>
+</tr>
+<tr><td>4-7</td>
+<td>Version</td>
+<td>Encodes the version of the X-Trace Metadata</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<p>Bits 0 and 1 encode the length of the TaskId as follows:</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="10%" />
+<col width="10%" />
+<col width="23%" />
+<col width="58%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head" colspan="2">IdLen</th>
+<th class="head" rowspan="2">Mask</th>
+<th class="head" rowspan="2">Bytes for TaskId</th>
+</tr>
+<tr><th class="head">1</th>
+<th class="head">0</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>0</td>
+<td>0</td>
+<td>0x00</td>
+<td>4</td>
+</tr>
+<tr><td>0</td>
+<td>1</td>
+<td>0x01</td>
+<td>8</td>
+</tr>
+<tr><td>1</td>
+<td>0</td>
+<td>0x02</td>
+<td>12</td>
+</tr>
+<tr><td>1</td>
+<td>1</td>
+<td>0x03</td>
+<td>20</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<p>Bits 4 through 7 encode the version of the metadata as an integer, with 4 being
+the least significant bit.  The value 15 (bits 4 through 7 set to 1) is
+reserved for future expansion of the version number, if necessary.
+<strong>The current version id represented by this spec is 1</strong>.
+It is backwards compatible with version 0. The difference
+between the two is that version 0 has bit 3 of the flags set
+to 0, and only allows OpIds of length 4.</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="8%" />
+<col width="8%" />
+<col width="8%" />
+<col width="8%" />
+<col width="19%" />
+<col width="49%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head" colspan="4">Version</th>
+<th class="head" rowspan="2">Mask</th>
+<th class="head" rowspan="2">Version</th>
+</tr>
+<tr><th class="head">7</th>
+<th class="head">6</th>
+<th class="head">5</th>
+<th class="head">4</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0x00</td>
+<td>0</td>
+</tr>
+<tr><td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>0x10</td>
+<td>1</td>
+</tr>
+<tr><td>0</td>
+<td>0</td>
+<td>1</td>
+<td>0</td>
+<td>0x20</td>
+<td>2</td>
+</tr>
+<tr><td colspan="6">...</td>
+</tr>
+<tr><td>1</td>
+<td>1</td>
+<td>1</td>
+<td>1</td>
+<td>0xF0</td>
+<td>reserved</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+</div>
+<div class="section" id="taskid">
+<h3>2.2 TaskId</h3>
+<p>The TaskId identifies a Task, or a higher level operation that generally
+corresponds to a user-initiated task. It can be composed of several
+operations or events that span different software components, nodes, and layers.
+As noted above, it can be 4, 8, 12, or 20 bytes long, with the length being
+selected by the IdLen bits in the flags field. The TaskId MUST be the same
+across all operations comprinsing a task, or else the operations will not be
+associated with the same task.</p>
+<p>The set of TaskIds comprised of all 0's is reserved to mean <strong>INVALID</strong>
+TaskIds. An X-Trace Metadata with an <strong>INVALID</strong> TaskId is invalid, and
+MUST not be propagated or generate reports.</p>
+</div>
+<div class="section" id="opid">
+<h3>2.3 OpId</h3>
+<p>The OpId field identifies each operation or event that is part of a task and needs to be
+distinguished from the point of view of the X-Trace framework. It is a 4 or 8 bytes in length,
+depending on the setting of the flags bit 3. The value is interpreted as an opaque string of
+bytes, not as a number, and needs to be unique unique within the context of a task.</p>
+<p>If the OpId length is 4 bytes, the version can be set to 0 or 1. The table below
+specifies how implementations of versions 0 and 1 of the X-Trace metadata specification
+treat the different settings of the OpId length field.</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="13%" />
+<col width="15%" />
+<col width="33%" />
+<col width="20%" />
+<col width="20%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head">Version</th>
+<th class="head">OpIdLen</th>
+<th class="head">OpId</th>
+<th class="head"><dl class="first last docutils">
+<dt>Version 0</dt>
+<dd>Impl.</dd>
+</dl>
+</th>
+<th class="head"><dl class="first last docutils">
+<dt>Version 1</dt>
+<dd>Impl.</dd>
+</dl>
+</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>0</td>
+<td>0</td>
+<td>4 bytes</td>
+<td>ok</td>
+<td>ok</td>
+</tr>
+<tr><td>0</td>
+<td>1</td>
+<td>INVALID METADATA</td>
+<td>fail</td>
+<td>fail</td>
+</tr>
+<tr><td>1</td>
+<td>0</td>
+<td>4 bytes</td>
+<td>fail</td>
+<td>ok</td>
+</tr>
+<tr><td>1</td>
+<td>1</td>
+<td>8 bytes</td>
+<td>fail</td>
+<td>ok</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<p>If ChainsIds are being used
+as options to capture the concurrency structure of a task, then the
+OpId needs to be unique only within the context of a ChainId.</p>
+</div>
+<div class="section" id="metadata-length">
+<h3>2.4 Metadata Length</h3>
+<p>Given these three mandatory fields, the smallest well-formed X-Trace metadata is 9 bytes long, comprising
+the flags field, a 4-byte TaskId, and a 4-byte OpId. As two examples, in hex representation, a well-formed and
+valid X-Trace metadata can be 00 01020304 03030303 (with spaces added between the fields for clarity).
+The smallest well-formed, invalid X-Trace metadata is 00 00000000 00000000. Note that if the OpId length is
+set to 4, the settings of version to 0 or 1 are both valid.</p>
+<p>The maximum size is 1 + 20 + 8 + 1 + 255 = 285 bytes, but so far we have seen very little use of options,
+and no long options have been defined.</p>
+</div>
+<div class="section" id="optional-extended-fields">
+<h3>2.4 Optional / Extended fields</h3>
+<p>The option bit in the Flags field indicates the presence of optional or extension fields in the metadata.</p>
+<div class="section" id="options-length">
+<h4>2.4.1 Options Length</h4>
+<p>To make determining the size of the XTR-Md easier, there is a Length field that
+contains the length of all options combined, in bytes. This length <strong>does not</strong>
+include the length field itself. Thus, for determining the total length of an
+X-Trace metadata with options, one would add:</p>
+<blockquote>
+1 (flags) + (length of TaskId) + (length OpId) + 1 (OptionsLen byte) + OptionsLen.</blockquote>
+<p>If present, the options length field MUST NOT be set to 0. If there are no
+options, the O bit in the Flags field MUST be set to 0.</p>
+</div>
+<div class="section" id="option-format">
+<h4>2.3.1 Option Format</h4>
+<p>Following the Options Length field, there may be one or more options.
+Options have a Type field, represented by one byte.</p>
+<p>If the type is 0, it is a <strong>no-option</strong> type.  The option of type 0 has a total
+length of 1 byte, and no body.  Option type 0 MAY be used for padding, when it
+is more efficient or not possible to include arbitrary-length byte fields in
+protocols.  It MUST only occur at the end of the options list. Implementations
+MUST NOT try to parse options past the first type 0 option.</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="37%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head" colspan="2">No-option option format</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>Type:</td>
+<td>1 byte (0)</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<p>If the option type is not 0, i.e., between 1 and 255, then the option is a
+normal option, and follows the option format below:</p>
+<blockquote>
+<table border="1" class="docutils">
+<colgroup>
+<col width="37%" />
+<col width="63%" />
+</colgroup>
+<thead valign="bottom">
+<tr><th class="head" colspan="2">Normal option format</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr><td>Type:</td>
+<td>1 byte (1-255)</td>
+</tr>
+<tr><td>Length:</td>
+<td>1 byte (0-253)*</td>
+</tr>
+<tr><td>Payload:</td>
+<td>Length bytes</td>
+</tr>
+</tbody>
+</table>
+</blockquote>
+<p>The length only includes the size of the payload. Because of the total length
+of all options being limited to 255 bytes, the maximum length of each option
+can be at most 253 bytes (because of the type and length fields of the option
+itself. It there are more than one options, then the maximum length of each
+will be correspondingly smaller.</p>
+</div>
+</div>
+</div>
+<div class="section" id="x-trace-metadata-text-representation">
+<h2>3. X-Trace Metadata Text Representation</h2>
+<p>For text-based protocols (ASCII, Unicode), like HTTP, SIP, or email, for
+example, X-Trace Metadata is represented as a the hexadecimal string of the
+successive bytes in the binary representation. The characters A to F SHOULD be
+represented in CAPITAL LETTERS, but implementations SHOULD be tolerant to
+non-capital letters. Each byte MUST be 0-padded and thus represented by two
+characters each.</p>
+</div>
+<div class="section" id="propagation">
+<h2>4. Propagation</h2>
+<p>For the propagation of the X-Trace metadata, a node implementation will
+generate a unique OpId and replace the OpId of the previous operation(s)
+that happened before the current one. The TaskId MUST remain the same.
+So that the graph remains connected, every time a new OpId replaces a
+preceeding one, this binding MUST be registered in a report.</p>
+<p>How specific options are propagated will depend on the semantics of each
+option. How each option is propagated is part of the option's specification.
+However, if an implementation doesn't know how to propagate a specific option,
+it MUST copy the option to any new metadata it generates based on the current
+one.</p>
+<p>Figure 1 below shows an example of a simple HTTP transaction through a proxy
+that propagates X-Trace Metadata across layers and operations of the task. In
+the figure, (a) represents an OpId, and &lt;T,a&gt; represents metadata with TaskId
+T and OpId a.</p>
+<pre class="literal-block">
+   +--------+                                      +--------+
+(a)| HTTP   |           &lt;T,a&gt;                   (b)|  HTTP  |    &lt;T,b&gt;
+   | Client | ...................................&gt; | Proxy  | ............&gt;
+   +--------+                                      +--------+
+       |                                            ^     |
+       | &lt;T,a&gt;                               &lt;T,d&gt;  |     |     &lt;T,b&gt;
+       \/                                           |     \/  (e)
+    +--------+         &lt;T,c&gt;             (d)+--------+   +--------+ &lt;T,e&gt;
+ (c)|  TCP   |.............................&gt;|  TCP   |   |  TCP   |........&gt;
+    +--------+                              +--------+   +--------+
+        |                                       ^           |
+        |                                       |           |  &lt;T,e&gt;
+        \/  (f)                (g)              |  (h)      \/   (i)
+     +--------+  &lt;T,f&gt;   +--------+ &lt;T,g&gt;   +--------+    +--------+ &lt;T,i&gt;
+     |  IP    | --------&gt;|  IP    |--------&gt;|  IP    |    |  IP    |-------&gt;
+     +--------+          +--------+         +--------+    +--------+
+
+                               Figure 1.
+</pre>
+</div>
+<div class="section" id="author-s-address">
+<h2>5. Author's Address</h2>
+<div class="line-block">
+<div class="line">Rodrigo Fonseca</div>
+<div class="line">465 Soda Hall</div>
+<div class="line">Berkeley, CA 94720-1776</div>
+<div class="line">USA</div>
+<div class="line"><br /></div>
+<div class="line">email - rfonseca at cs dot berkeley dot edu</div>
+<div class="line"><br /></div>
+<div class="line">George Porter</div>
+<div class="line">465 Soda Hall</div>
+<div class="line">Berkeley, CA 94720-1776</div>
+<div class="line">USA</div>
+<div class="line"><br /></div>
+<div class="line">email - gporter at cs dot berkeley dot edu</div>
+</div>
+</div>
+<div class="section" id="citations">
+<h2>Citations</h2>
+<table class="docutils footnote" frame="void" id="id3" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>Rodrigo Fonseca, George Manning Porter, Randy H. Katz, Scott Shenker and Ion Stoica, &quot;X-Trace: A Pervasive Network Tracing Framework&quot;. In Proceedings of the 4th USENIX Symposium on Networked Systems Design and Implementation (NSDI'07). Cambridge, MA, USA, April 2007.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id4" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>X-Trace Specification Document - Report Format. <a class="reference external" href="http://www.x-trace.net">http://www.x-trace.net</a></td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="appendix-change-log">
+<h2>Appendix: Change Log</h2>
+<p>Changes marked with a '*' mean changes that have implementation implications.
+Otherwise changes just refer to the document (fixes and clarifications). The
+versioning reflects this: minor numbers will change with at least one '*'
+change, e.g., from 1.2.x to 1.3.0.</p>
+<ul>
+<li><p class="first">2.1.1 - minor changes and fixes</p>
+</li>
+<li><dl class="first docutils">
+<dt>2.1.0 - * upgraded the Metadata version to 1, backwards compatible with version 0.</dt>
+<dd><p class="first last">This update introduces variable length OpId field (4 and 8 bytes).</p>
+</dd>
+</dl>
+</li>
+<li><p class="first">2.0.0 - major revision of the X-Trace metadata format, simplifying the metadata contents and propagation.</p>
+</li>
+<li><p class="first">1.3.1 - added change log. fixed section numbering</p>
+</li>
+<li><p class="first">1.3.0 - ! added a length byte to the destination field</p>
+</li>
+<li><p class="first">1.2.1 - fixed typo in the mask for the task id length of 20 bytes: was 0x0C, should be 0xC0</p>
+</li>
+<li><p class="first">1.2.0</p>
+<ul class="simple">
+<li>! added invalid XTR id</li>
+<li>updated the description example to have 4-byte tree info operation ids</li>
+<li>Added sentence to cover propagation operations on metadata with no tree info.</li>
+<li>fixed typo and clarified IdLen flags</li>
+<li>added reference to NSDI paper</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</body>
+</html>

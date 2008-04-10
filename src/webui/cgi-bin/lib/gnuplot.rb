@@ -10,17 +10,17 @@ GRAPH_HEIGHT = 320
 # The image will currently always be saved as png, but its name should not have
 # the .png extension.
 #
-# The return value is the path of the image relative to htdocs.
+# The return value is the path of the image relative to ../html.
 def get_plot(trace, plot_name, format = "png", &block)
   task = trace.taskid
-  graph_file = "htdocs/graphs/#{task}/#{plot_name}.#{format}"
+  graph_file = "../html/graphs/#{task}/#{plot_name}.#{format}"
   # Only regenerate the plot if the file does not exist, or it is older
   # than the end of the trace plus 5 seconds, or debug mode is on.
   if not File.exist? graph_file or DEBUG or 
       File.new(graph_file).ctime.to_f < trace.end_time.to_f + 5
     puts "Generating graph #{graph_file}"
-    Dir.mkdir "htdocs/graphs" unless File.exist? "htdocs/graphs"
-    Dir.mkdir "htdocs/graphs/#{task}" unless File.exist? "htdocs/graphs/#{task}"
+    Dir.mkdir "../html/graphs" unless File.exist? "../html/graphs"
+    Dir.mkdir "../html/graphs/#{task}" unless File.exist? "../html/graphs/#{task}"
     IO.popen("gnuplot", "w") do |io|
       io << "set terminal #{format} size #{GRAPH_WIDTH}, #{GRAPH_HEIGHT}\n"
       io << "set output '#{graph_file}'\n"

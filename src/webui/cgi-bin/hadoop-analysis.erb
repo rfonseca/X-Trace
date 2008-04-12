@@ -52,7 +52,7 @@ if taskid
     hosts.each_with_index{|host,idx| host_idx[host] = idx}
 
     # Print overall task statistics
-    %><h1>Statistics for task <%=taskid%></h1><%
+    %><h1>Andy: Statistics for task <%=taskid%></h1><%
     stats = [
       ['Start time', Time.at(start_time)],
       ['End time', Time.at(end_time)],
@@ -279,24 +279,71 @@ if taskid
       %><img src="<%=plot%>" /><%
     end
 
-    # Write performance by host
+    # Write performance by host sorted by 1)mean, 2)95th, 3)var 
+
+    # f = lambda {|x| x.mean}
+    # f.call(...)
+
     unless local_writes.empty?
-      plot = get_plot(trace, "write_perf_by_host") do |graph_file|
-        data_file = graph_file + ".txt"
-        data_io = File.new(data_file, "w")
-        local_writes.each do |size, time, host|
-          data_io << "#{host_idx[host]}\t#{time}\n"
+      sort_modes = []
+      sort_modes << ["mean", lambda {|x| x.mean}]
+      sort_modes << ["std", lambda{|x| x.std}]
+
+      sort_modes.each do |stat_type, function|
+        plot = get_plot(trace, "write_perf_by_host"+stat_type) do |graph_file|
+          #compute stats and per-host timings
+          write_st = StatTable.new 
+          local_writes.each do |size, time, host|
+            write_st[host_idx[host]] << time  
+          end
+
+          graph_types = []
+          graph_types << ["values"]
+          graph_types << ["mean", lambda {|x| x.mean}]
+          graph_types << ["std", lambda {|x| x.std}]
+          graph_types << ["25th_percentile", lambda {|x| x.percentile(25)}]
+          graph_types << ["95th_percentile", lambda {|x| x.percentile(95)}]
+          graph_names = graph_types.map{|elt| elt[0]} 
+          data_io, file_names = {}, {} 
+          graph_names.each do |type|
+            file_names[type] = graph_file + type + ".txt"
+            data_io[type] = File.new(file_names[type], "w")
+          end 
+          
+          sorted_write_st = write_st.sort{ |a, b| 
+            function.call(a[1]) <=> function.call(b[1])
+          }
+
+          i = 0
+          sorted_write_st.each do |hoststats|
+            hoststats[1].values.each do |value|
+              data_io["values"] << "#{i}\t#{value}\n"
+            end
+            graph_types.select{|item| item[0] != "values"}.each do |name, funct|
+              data_io[name] << "#{i}\t#{funct.call(hoststats[1])}\n"
+            end
+            i += 1
+          end
+
+          data_io.each do |key, value|
+            value.close
+          end
+
+          # Return GNUPlot commands
+          retval =
+          "set title '(Local) Write Performance by Host Sorted by #{stat_type}'
+           set xlabel 'Host'
+           set ylabel 'Duration (s)'
+           set yrange [0:]
+           set xrange [0:]
+           plot '#{file_names["values"]}' notitle lt 9" 
+          graph_types.select{|item| item[0] != "values"}.each do |name, funct| 
+            retval += ", '" + file_names[name] + "' with lines lw 5 title '" + name + "'"
+          end
+          retval
         end
-        data_io.close
-        # Return GNUPlot commands
-        "set title '(Local) Write Performance by Host'
-         set xlabel 'Host'
-         set ylabel 'Duration (s)'
-         set yrange [0:]
-         set xrange [0:]
-         plot '#{data_file}' notitle"
+        %><img src="<%=plot%>" /><%
       end
-      %><img src="<%=plot%>" /><%
     end
     
     # Reads per host

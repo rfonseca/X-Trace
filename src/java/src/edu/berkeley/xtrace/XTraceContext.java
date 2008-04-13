@@ -222,8 +222,8 @@ public class XTraceContext {
 	 * @param process  name of process
 	 * @return the process object created
 	 */
-	public static XTraceProcess startProcess(String agent, String process) {
-		logEvent(agent, process + " start");
+	public static XTraceProcess startProcess(String agent, String process, Object... args) {
+		logEvent(agent, process + " start", args);
 		return new XTraceProcess(getThreadContext(), agent, process);
 	}
 
@@ -300,6 +300,19 @@ public class XTraceContext {
 			pw.flush();
 
 			evt.put("Exception", IoUtil.escapeNewlines(sw.toString()));
+			evt.sendReport();
+		}
+	}
+
+
+	public static void failProcess(XTraceProcess process, String reason) {
+		if (getThreadContext() != null) {
+			XTraceMetadata oldContext = getThreadContext();
+			XTraceEvent evt = createEvent(process.agent, process.name + " failed");
+			if (oldContext != process.startCtx) {
+				evt.addEdge(process.startCtx);	// Make sure we don't get a double edge from startCtx
+			}
+			evt.put("Reason", reason);
 			evt.sendReport();
 		}
 	}

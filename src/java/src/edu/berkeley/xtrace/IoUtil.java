@@ -42,6 +42,37 @@ public final class IoUtil
 {
    //private static final Logger LOG = Logger.getLogger(IoUtil.class);
    private static final char[] hex = "0123456789ABCDEF".toCharArray();
+   
+   /**
+    * This function returns the subset of the given serialized metadata
+    * string representing the operation id.  It is designed to be
+    * very fast, and to avoid manifesting the metadata as a
+    * complete object.
+    * 
+    * @param md the serialized metadata to extract the opid from
+    * @return a string representing the operation id
+    */
+   public static String fastOpIdExtraction(String md) {
+	   if (md.length() < 18) return "00000000";
+	   
+	   int opidlength = 4;
+	   int taskidlength = 4;
+	   
+	   byte flag = (byte) Integer.parseInt(md.substring(0, 2), 16);
+	   if ((flag & 0x08) != 0) {
+		   opidlength = 8;
+	   }
+	   
+	   switch (flag & 0x03) {
+	   case 0x00: taskidlength = 4; break;
+	   case 0x01: taskidlength = 8; break;
+	   case 0x02: taskidlength = 12; break;
+	   case 0x03: taskidlength = 20; break;
+	   default: // can't happen
+	   }
+	   
+	   return md.substring(2 + 2*taskidlength, 2 + 2*taskidlength + 2*opidlength);
+   }
 
    /**
     * Converts a byte array into a String, according to the rules in

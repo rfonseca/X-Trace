@@ -1,5 +1,6 @@
 package edu.berkeley.xtrace;
 
+import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Random;
@@ -35,15 +36,24 @@ public class XTraceEvent {
 		= new ThreadLocal<Random>() {
 		@Override
 		protected Random initialValue() {
-			// TODO: use process ID too?
+			// It's very important to have a different random number seed for each thread,
+			// so that we don't get OpID collisions in the same X-Trace graph. We therefore
+			// base the seed on our hostname, process ID, thread ID, and current time.
+			// Java provides no way to get the current PID; however, we can get something
+			// similar on the Sun JVM by looking at the RuntimeMXBean (whose name will be
+			// something like pid@hostname). This is the only solution I've found that
+			// doesn't involve writing native code or exec'ing another process... (Matei)
+			int processId = ManagementFactory.getRuntimeMXBean().getName().hashCode();
 			try {
 				return new Random(++threadId
+						+ processId
 						+ System.nanoTime()
 						+ Thread.currentThread().getId()
 						+ InetAddress.getLocalHost().getHostName().hashCode() );
 			} catch (UnknownHostException e) {
 				// Failed to get local host name; just use the other pieces
 				return new Random(++threadId
+						+ processId
 						+ System.nanoTime()
 						+ Thread.currentThread().getId());
 			}

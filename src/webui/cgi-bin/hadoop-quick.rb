@@ -20,7 +20,7 @@ cgi = CGI.new('html4')
 SERVER_URL = "http://#{cgi.server_name}:#{cgi.server_port}"
 REPORTS_URL = "#{SERVER_URL}/reports/"
 
-io = open("hadoop-analysis.erb")
+io = open("hadoop-quick.erb")
 template = ERB.new(io.read)
 io.close
 

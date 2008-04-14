@@ -9,6 +9,7 @@ class Trace
     @duplicates = 0
     @reports_by_id = {}
     @reports.each do |rep| 
+      STDERR << rep.opid << "\n" if @reports_by_id[rep.opid]
       @duplicates += 1 if @reports_by_id[rep.opid]
       @reports_by_id[rep.opid] = rep
     end
@@ -212,7 +213,7 @@ class Report
         return @fields[name]
       end
     else
-      raise NoMethodError, name
+      return nil
     end
   end
 

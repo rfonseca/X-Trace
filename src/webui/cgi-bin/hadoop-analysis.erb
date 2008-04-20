@@ -52,7 +52,7 @@ if taskid
     hosts.each_with_index{|host,idx| host_idx[host] = idx}
 
     # Print overall task statistics
-    %><h1>Andy: Statistics for task <%=taskid%></h1><%
+    %><h1>Statistics for task <%=taskid%></h1><%
     stats = [
       ['Start time', Time.at(start_time)],
       ['End time', Time.at(end_time)],
@@ -338,7 +338,7 @@ if taskid
            set xrange [0:]
            plot '#{file_names["values"]}' notitle lt 9" 
           graph_types.select{|item| item[0] != "values"}.each do |name, funct| 
-            retval += ", '" + file_names[name] + "' with lines lw 5 title '" + name + "'"
+            retval += ", '" + file_names[name] + "' with lines lw 2 title '" + name + "'"
           end
           retval
         end

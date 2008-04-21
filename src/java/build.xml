@@ -135,6 +135,11 @@
     </copy>
   	<chmod file="${dist.dir}/webui/cgi-bin/graph_report.pl" perm="ugo+rx"/>
   	<chmod file="${dist.dir}/webui/cgi-bin/graph.rb" perm="ugo+rx"/>
+  	<chmod file="${dist.dir}/webui/cgi-bin/hadoop-analysis.rb" perm="ugo+rx"/>
+    <chmod file="${dist.dir}/webui/cgi-bin/hadoop-analysis.erb" perm="ugo+rx"/>
+  	<chmod file="${dist.dir}/webui/cgi-bin/hadoop-quick.rb" perm="ugo+rx"/>
+    <chmod file="${dist.dir}/webui/cgi-bin/hadoop-quick.erb" perm="ugo+rx"/>
+  	    
   	
     <!-- licenses -->
     <copy file="${root.dir}/LICENSE.txt" todir="${dist.dir}" />
@@ -184,6 +189,10 @@
     </copy>
   	<chmod file="${ec2dist.dir}/webui/cgi-bin/graph_report.pl" perm="ugo+rx"/>
   	<chmod file="${ec2dist.dir}/webui/cgi-bin/graph.rb" perm="ugo+rx"/>
+  	<chmod file="${ec2dist.dir}/webui/cgi-bin/hadoop-analysis.rb" perm="ugo+rx"/>
+    <chmod file="${ec2dist.dir}/webui/cgi-bin/hadoop-analysis.erb" perm="ugo+rx"/>
+  	<chmod file="${ec2dist.dir}/webui/cgi-bin/hadoop-quick.rb" perm="ugo+rx"/>
+  	<chmod file="${ec2dist.dir}/webui/cgi-bin/hadoop-quick.erb" perm="ugo+rx"/>
   	
     <!-- licenses -->
     <copy file="${root.dir}/LICENSE.txt" todir="${ec2dist.dir}" />

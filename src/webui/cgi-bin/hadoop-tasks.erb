@@ -1,0 +1,163 @@
+<%
+script_start_time = Time.new
+log = Logger.new(STDERR)
+log.datetime_format = "%Y-%m-%d %H:%M:%S"
+jobid = cgi['jobid']
+jobid = "" unless jobid =~ /[a-z0-9_]*/ # Don't allow weird characters
+if jobid != ""
+  title = "Utilization for #{jobid}"
+else
+  title = "Please select a job"
+end
+
+num_samples = 1000
+
+%>
+
+<html>
+<head>
+  <title><%=title%></title>
+  <link rel="stylesheet" href="hadoop-analysis.css" />
+</head>
+<body>
+
+<h1><%=title%></h1>
+
+<%
+if jobid != ""
+  io = open(PROGRESS_LOG_DIR + "/" + jobid)
+  reportTexts = io.read.split(/\n\n/)
+  io.close
+  if reportTexts.empty?
+    %>No progress reports have yet been written.<%
+  else
+    report = JSON.parse(reportTexts[-1]) # Look only at the last report
+    maps = report["maps"]
+    reduces = report["reduces"]
+    all_tips = maps + reduces
+    
+    # Figure out start and end time
+    times = []
+    all_tips.each do |tip|
+      tip["tasks"].each do |task|
+        start = task["startTime"]
+        finish = task["finishTime"]
+        times << start if start != 0
+        times << finish if finish != 0
+      end
+    end
+    start_time = times.min
+    finish_time = times.max
+    duration = finish_time - start_time
+    %><p>Duration: <%=duration/1000%>s</p><%
+    
+    # Figure out list of nodes involved
+    nodes = []
+    all_tips.each do |tip|
+      tip["tasks"].each do |task|
+        nodes << task["taskTracker"]
+      end
+    end
+    nodes = nodes.uniq
+    %><p>Nodes: <%=nodes.length%></p><%
+    
+    
+    headings = []
+    %w[Maps Reduces].each do |type|
+      %w[Successful Failed Killed Running].each do |state|
+        headings << state + " " + type
+      end
+    end
+    seq = []
+    
+    count = Hash.new(0)
+          
+    num_samples.times do |x|
+      time = start_time + (finish_time - start_time) * (x / (num_samples-1).to_f)
+      headings.each {|h| count[h] = 0}
+      maps.each do |map_tip|
+        map_tip["tasks"].each do |map|
+          if map["startTime"] < time && (map["finishTime"] == 0 || map["finishTime"] >= time)
+            case map["state"]
+            when "SUCCEEDED"
+              count["Successful Maps"] += 1
+            when "FAILED"
+              count["Failed Maps"] += 1
+            when "KILLED"
+              count["Killed Maps"] += 1
+            else
+              count["Running Maps"] += 1
+            end
+          end
+        end
+      end
+      reduces.each do |red_tip|
+        red_tip["tasks"].each do |red|
+        if   red["startTime"] < time && (red["finishTime"] == 0 || red["finishTime"] >= time)
+            case red["state"]
+            when "SUCCEEDED"
+              count["Successful Reduces"] += 1
+            when "FAILED"
+              count["Failed Reduces"] += 1
+            when "KILLED"
+              count["Killed Reduces"] += 1
+            else
+              count["Running Reduces"] += 1
+            end
+          end
+        end
+        # Create the array of entries for Gnuplot; we add up the different headings
+        # in reverse order to stack them (the first heading, Successful Maps, will have
+        # the sum of the other ones so it always comes out on top).
+        nums = []
+        sum = 0
+        headings.reverse.each do |h| 
+          nums << count[h] + sum
+          sum += count[h]
+        end
+        seq << [(time - start_time) / 1000] + nums.reverse
+      end
+    end
+    
+    plot = get_plot_2(jobid, "tasks2") do |graph_file|
+      data_file = graph_file + ".txt"
+      open(data_file, "w") do |data_io|
+        seq.each do |row|
+          data_io << row.join("\t") + "\n"
+        end
+      end
+      # Return GNUPlot commands
+      cmds = "set title 'Tasks vs Time'
+       set xlabel 'Time (s)'
+       set ylabel 'Tasks'
+       set yrange [0:]
+       set xrange [0:]
+       set key outside
+       "
+      items = []
+      headings.each_with_index do |h,i|
+        items << "'#{data_file}' u 1:#{i+2} w boxes fs solid title '#{h}'"
+      end
+      cmds += "plot #{items.join(', ')}"
+      cmds
+    end
+    %><img src="<%=plot%>" /><%
+  end
+else
+  %><ul><%
+  Dir.foreach(PROGRESS_LOG_DIR) do |file|
+    unless file =~ /^\./ # Ignore directory entires and hidden files
+    %>
+    <li><a href="<%=SERVER_URL+"/hadoop-tasks.rb?jobid="+file%>"><%=file%></a></li>
+    <%
+    end
+  end
+  %></ul><%
+end
+%>
+</body>
+
+<hr />
+<p>Page generated in <%=Time.new-script_start_time%> seconds.</p>
+
+</html>

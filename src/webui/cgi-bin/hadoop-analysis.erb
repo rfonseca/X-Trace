@@ -2,7 +2,7 @@
 # TODO: Move some of this code into separate files and refactor some common
 # functionality such as drawing a scatter plot.
 script_start_time = Time.new
-log = Logger.new(STDOUT)
+log = Logger.new(STDERR)
 log.datetime_format = "%Y-%m-%d %H:%M:%S"
 taskid = cgi['taskid']
 title = "#{Socket.gethostname} Trace Analysis UI"
@@ -68,15 +68,19 @@ if taskid
       reduces = 0
       map_attempts = 0
       reduce_attempts = 0
+      retried_maps = 0
+      retried_reduces = 0
       trace.reports.each do |rep|
         if rep.label == "init" and rep.agent =~ /TaskInProgress: (.*)/
           tip = $1
           if tip =~ /tip_[0-9]*_[0-9]*_m_([0_9])*/
             maps += 1
             map_attempts += rep.children.select{|x| x.label =~ /^startNew/}.length
+            retried_maps += rep.children.select{|x| x.label =~ /^startNew.*_[1-9][0-9]*$/}.length
           else
             reduces += 1
             reduce_attempts += rep.children.select{|x| x.label =~ /^startNew/}.length
+            retried_reduces += rep.children.select{|x| x.label =~ /^startNew.*_[1-9][0-9]*$/}.length
           end
         end 
       end
@@ -84,7 +88,9 @@ if taskid
         ['Maps', maps],
         ['Reduces', reduces],
         ['Map attempts', map_attempts],
-        ['Reduce attempts', reduce_attempts]]
+        ['Reduce attempts', reduce_attempts],
+        ['Retried maps', retried_maps],
+        ['Retried reduces', retried_reduces]]
     end
     %><%=vertical_table stats%><%
     

@@ -588,7 +588,8 @@ if taskid
     # in the form [start_time, end_time, was_success]
     map_intervals = []
     reduce_intervals = []
-    map_runs = []   # [inputsize, time, host, success] tuples for each map
+    map_runs = []   # [inputsize, time, host, success, is_retry] tuples for each map
+    suspects = [] # keep track of those tasks who we launch spec executions for
     trace.reports.each do |report|
       if report.agent == "TaskTracker" and
          report.label =~ /^startNewTask: (.*)/
@@ -602,17 +603,24 @@ if taskid
         # Add intervals to the appropriate arrays
         if end_node
           success = end_node.label == "done"
+          is_retry = false
+          if task =~ /(.*)(_[1-9][0-9]*)$/ then 
+            is_retry = true 
+            #also mark the 0th attempt of this task as being suspect
+            suspects << $1 + "_0"
+            log.info "adding " + suspects.last + " to the suspects array"
+          end
           if report.label =~ /_m_/ # It's a map task
-            map_intervals << [report.timestamp, end_node.timestamp, success]
+            map_intervals << [report.timestamp, end_node.timestamp, success, is_retry, task]#.match(/(.*)_[0-9][0-9]*$/)[1]]
             # Find a node which gives input length
             create_split = report.next{|n| n.label == "create input split"}
             if create_split
               map_runs << [create_split.inputlength,
                 end_node.timestamp - report.timestamp,
-                report.host, success]
+                report.host, success, is_retry, task]
             end
           else
-            reduce_intervals << [report.timestamp, end_node.timestamp, success]
+            reduce_intervals << [report.timestamp, end_node.timestamp, success, is_retry, task]
           end
         end
       end
@@ -794,22 +802,60 @@ if taskid
 
     if is_map_reduce
       %><h2>Task Duration Distributions</h2><%
+      #plot the duration of each map, sorted
+      #there are 5 types of tasks to distinguish between:
+      #  0) not-suspected, i.e. succeeded on first try
+      #  1) suspected, succeeded
+      #  2) suspected, killed
+      #  3) speculative, succeeded
+      #  4) speculative, killed
       plot = get_plot(trace, "map_distr") do |graph_file|
-        data_file = graph_file + ".txt"
-        data_io = File.new(data_file, "w")
-        durations = map_intervals.map{|start,finish| finish-start}.sort.reverse
-        durations.each_with_index{|x,i| data_io << "#{i+1}\t#{x}\n"}
-        data_io << "#{durations.length+1}\t0\n" if durations.length <= 1
-        data_io.close
+        file_suffixes = ["good", "suspect-finished", "suspect-killed", 
+            "speculative-finished", "speculative-killed"]
+        data_files = file_suffixes.map{|x| graph_file + "." + x + ".txt"}
+        data_ios = data_files.map{|f_name| File.new(f_name, "w")}
+        map_intervals.map{|x| x << x[1]-x[0]}.sort{|a,b| a.last<=>b.last}.reverse.each_with_index do |x,i|
+          data_line = "#{i+1}\t#{x.last}\n"
+          zero_data_line = "#{i+1}\t0\n"
+          # 0 means success and not is_retry and is not suspected
+          #log.info "suspects.find(#{x[4]}) = " + suspects.find{|tid| tid == x[4]}.nil?.to_s
+          if x[2] and not x[3] and suspects.find{|tid| tid == x[4]}.nil? then data_ios[0] << data_line 
+          else data_ios[0] << zero_data_line 
+          end
+          # 1 is hard to tell apart from 0, skip this for now
+          if x[2] and not x[3] and not suspects.find{|tid| tid == x[4]}.nil? then data_ios[1] << data_line 
+          else data_ios[1] << zero_data_line 
+          end
+          # 2 means not success and not is_retry
+          if not x[2] and not x[3] then data_ios[2] << data_line
+          else data_ios[2] << zero_data_line 
+          end
+          # 3 means successful and is_retry
+          if x[2] and x[3] then data_ios[3] << data_line 
+          else data_ios[3] << zero_data_line 
+          end
+          # 4 means not successful and is_retry
+          if not x[2] and x[3] then data_ios[4] << data_line 
+          else data_ios[4] << zero_data_line 
+          end
+        end
+        data_ios.each{|x| x.close}
         # Return GNUPlot commands
         "set title 'Map Durations'
          set xlabel 'Task number'
          set ylabel 'Duration (s)'
-         #{'set xtics 1' if durations.length < 10}
+         #{'set xtics 1' if map_intervals.length < 10}
          set yrange [0:]
-         plot '#{data_file}' notitle with boxes fs solid"
+         plot '#{data_files[0]}' title '#{file_suffixes[0]}' with boxes fs solid,\\
+           '#{data_files[1]}' title '#{file_suffixes[1]}' with boxes fs solid,\\
+           '#{data_files[2]}' title '#{file_suffixes[2]}' with boxes fs solid,\\
+           '#{data_files[3]}' title '#{file_suffixes[3]}' with boxes fs solid,\\
+           '#{data_files[4]}' title '#{file_suffixes[4]}' with boxes fs solid"
+
       end
       %><img src="<%=plot%>" /><%
+
+      #plot the duration of each reduce, sorted
       plot = get_plot(trace, "reduce_distr") do |graph_file|
         data_file = graph_file + ".txt"
         data_io = File.new(data_file, "w")

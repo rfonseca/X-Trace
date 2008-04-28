@@ -61,6 +61,8 @@ if jobid != ""
     nodes = nodes.uniq
     %><p>Nodes: <%=nodes.length%></p><%
     
+    %><p>Maps: <%=maps.length%></p><%
+    %><p>Reduces: <%=reduces.length%></p><%
     
     headings = []
     %w[Maps Reduces].each do |type|
@@ -93,7 +95,7 @@ if jobid != ""
       end
       reduces.each do |red_tip|
         red_tip["tasks"].each do |red|
-        if   red["startTime"] < time && (red["finishTime"] == 0 || red["finishTime"] >= time)
+        if red["startTime"] < time && (red["finishTime"] == 0 || red["finishTime"] >= time)
             case red["state"]
             when "SUCCEEDED"
               count["Successful Reduces"] += 1
@@ -106,17 +108,17 @@ if jobid != ""
             end
           end
         end
-        # Create the array of entries for Gnuplot; we add up the different headings
-        # in reverse order to stack them (the first heading, Successful Maps, will have
-        # the sum of the other ones so it always comes out on top).
-        nums = []
-        sum = 0
-        headings.reverse.each do |h| 
-          nums << count[h] + sum
-          sum += count[h]
-        end
-        seq << [(time - start_time) / 1000] + nums.reverse
       end
+      # Create the array of entries for Gnuplot; we add up the different headings
+      # in reverse order to stack them (the first heading, Successful Maps, will have
+      # the sum of the other ones so it always comes out on top).
+      nums = []
+      sum = 0
+      headings.reverse.each do |h| 
+        nums << count[h] + sum
+        sum += count[h]
+      end
+      seq << [(time - start_time) / 1000] + nums.reverse
     end
     
     plot = get_plot_2(jobid, "tasks2") do |graph_file|
@@ -142,6 +144,7 @@ if jobid != ""
       cmds
     end
     %><img src="<%=plot%>" /><%
+    %><p><a href="<%=plot%>.txt" />Data</a></p><%
   end
 else
   %><ul><%

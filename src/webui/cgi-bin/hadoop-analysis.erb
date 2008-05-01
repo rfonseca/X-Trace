@@ -70,6 +70,7 @@ if taskid
       reduce_attempts = 0
       retried_maps = 0
       retried_reduces = 0
+      tip = ""
       trace.reports.each do |rep|
         if rep.label == "init" and rep.agent =~ /TaskInProgress: (.*)/
           tip = $1
@@ -85,6 +86,7 @@ if taskid
         end 
       end
       stats += [
+        ['Hadoop Job ID', tip.match(/tip_(.*)_[mr]/)[1]],
         ['Maps', maps],
         ['Reduces', reduces],
         ['Map attempts', map_attempts],

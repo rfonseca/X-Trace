@@ -10,7 +10,7 @@ else
   title = "Please select a job"
 end
 
-num_samples = 1000
+num_samples = 500
 
 %>
 
@@ -144,7 +144,7 @@ if jobid != ""
         nums << count[h] + sum
         sum += count[h]
       end
-      seq << [(time - start_time) / 1000] + nums.reverse
+      seq << [(time - start_time) / 1000.0] + nums.reverse
     end
     
     plot = get_plot_2(jobid, "tasks2") do |graph_file|
@@ -185,7 +185,7 @@ if jobid != ""
       data_files = file_suffixes.map{|x| graph_file + "." + x + ".txt"}
       data_ios = data_files.map{|f_name| File.new(f_name, "w")}
     
-      map_tasks.map{|x| x << (x[1]-x[0])/1000}.sort{|a,b| a.last<=>b.last}.reverse.each_with_index do |x,i|
+      map_tasks.map{|x| x << (x[1]-x[0])/1000.0}.sort{|a,b| a.last<=>b.last}.reverse.each_with_index do |x,i|
         data_line = "#{i+1}\t#{x.last}\n"
         zero_data_line = "#{i+1}\t0\n"
         # 0 means success and not is_retry and is not suspected

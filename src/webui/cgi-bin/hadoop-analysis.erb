@@ -85,14 +85,16 @@ if taskid
           end
         end 
       end
+      hadoop_job_id = tip.match(/tip_(.*)_[mr]/)[1] 
       stats += [
-        ['Hadoop Job ID', tip.match(/tip_(.*)_[mr]/)[1]],
+        ['Hadoop Job ID', hadoop_job_id],
         ['Maps', maps],
         ['Reduces', reduces],
         ['Map attempts', map_attempts],
         ['Reduce attempts', reduce_attempts],
         ['Retried maps', retried_maps],
-        ['Retried reduces', retried_reduces]]
+        ['Retried reduces', retried_reduces],
+        ['Graphs from non X-Trace data', "<a href=\"hadoop-tasks.rb?jobid=job_" + hadoop_job_id + "\">link</a>"]]
     end
     %><%=vertical_table stats%><%
     

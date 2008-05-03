@@ -589,10 +589,9 @@ if taskid
     log.info "Wrote DFS statistics"
 
     # Calculate map and reduce task duration intervals; these will be tuples
-    # in the form [start_time, end_time, was_success]
-    map_intervals = []
+    map_intervals = [] # [start_time, end_time, success, is_retry, tid]
     reduce_intervals = []
-    map_runs = []   # [inputsize, time, host, success, is_retry] tuples for each map
+    map_runs = []   # [inputsize, time, host, success, is_retry, tid] tuples for each map
     suspects = [] # keep track of those tasks who we launch spec executions for
     trace.reports.each do |report|
       if report.agent == "TaskTracker" and

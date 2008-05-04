@@ -221,7 +221,7 @@ if jobid != ""
         end
         data_ios.each{|x| x.close}
         # Return GNUPlot commands
-        "set title 'Map Durations'
+        "set title '#{type_name} Durations'
          set xlabel 'Task number'
          set ylabel 'Duration (s)'
          set yrange [0:]
@@ -282,7 +282,7 @@ if jobid != ""
         end
         data_ios.each{|x| x.close}
         # Return GNUPlot commands
-        "set title 'Map Durations'
+        "set title '#{type_name.capitalize} Durations'
          set xlabel 'Task number'
          set ylabel 'Duration (s)'
          set yrange [0:]
@@ -307,7 +307,7 @@ if jobid != ""
       #  3) speculative, succeeded
       #  4) speculative, killed
       plots << get_plot_2(jobid, type_name+"_distr_grouped_by_host") do |graph_file|
-        data_files = (file_suffixes << "mean_task_length_per_tracker"+type_name).map{|x| graph_file + "." + x + ".txt"}
+        data_files = (file_suffixes << "mean_task_length_per_tracker "+type_name).map{|x| graph_file + "." + x + ".txt"}
         data_ios = data_files.map{|f_name| File.new(f_name, "w")}
         task_trackers = Hash.new {|key,value| key[value] = Array.new(6) {StatCounter.new}}
 
@@ -341,7 +341,7 @@ if jobid != ""
           tt_name = tt[0]
           tt[1].each_with_index do |tt_task_type, k|
             if k==5 then
-              data_ios[5] << "#{i+1-tt_task_type.values.length/2}\t#{tt_task_type.mean}\n"
+              data_ios[5] << "#{i+1-tt_task_type.values.length/2}\t#{tt_task_type.mean}\t#<--#{tt_name}\n"
             else
               tt_task_type.values.each do |v|
                 data_ios[k] << "#{i+1}\t#{v}\t###{tt_name}\n"
@@ -355,7 +355,7 @@ if jobid != ""
         
         data_ios.each{|x| x.close}
         # Return GNUPlot commands
-        "set title 'Map Durations'
+        "set title '#{type_name.capitalize} Durations'
          set xlabel 'Task number'
          set ylabel 'Duration (s)'
          set yrange [0:]

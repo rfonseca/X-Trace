@@ -64,9 +64,9 @@ if jobid != ""
         
         is_success = (task["state"] == "SUCCEEDED" or task["state"] == "RUNNING") ? true : false
         
-        #store [start_time, end_time, state, is_retry, tid]   
-        if task["startTime"] != 0
-          map_tasks << [task["startTime"], task["finishTime"], is_success, is_retry, task["taskId"]] 
+        #store [start_time, end_time, state, is_retry, tid, task_tracker]   
+        if task["startTime"] != 0 and ((task["finishTime"]-task["startTime"]) > 0) then
+          map_tasks << [task["startTime"], task["finishTime"], is_success, is_retry, task["taskId"], task["taskTracker"]] 
         end
       end
     end
@@ -234,7 +234,7 @@ if jobid != ""
     #  2) suspected, killed
     #  3) speculative, succeeded
     #  4) speculative, killed
-    plot3 = get_plot_2(jobid, "map_distr_grouped") do |graph_file|
+    plot3 = get_plot_2(jobid, "map_distr_grouped_by_task_type") do |graph_file|
       data_files = file_suffixes.map{|x| graph_file + "." + x + ".txt"}
       data_ios = data_files.map{|f_name| File.new(f_name, "w")}
       tasks = []
@@ -264,6 +264,7 @@ if jobid != ""
       end
       i = 0
       tasks.each_with_index do |sc,k|
+        if sc.values.length < 1 then data_ios[k] << "0\t0\n" end
         sc.values.each do |v|
           data_ios[k] << "#{i+1}\t#{v}\n"
           i += 1
@@ -285,7 +286,82 @@ if jobid != ""
     end
     %><img src="<%=plot3%>" /><p><ul>
     <% file_suffixes.each do |suf| %>
-      <li><a href="<%= plot3 + "." + suf + ".txt\"/>" + suf %> Data</a></li>
+      <li><a href="<%= plot3 + "." + suf + ".txt\"/>" + suf %> data</a></li>
+    <% end %>
+    </ul></p>
+    <% 
+    #plot the duration of each map, sorted
+    #there are 5 types of tasks to distinguish between:
+    #  0) not-suspected, i.e. succeeded on first try
+    #  1) suspected, succeeded
+    #  2) suspected, killed
+    #  3) speculative, succeeded
+    #  4) speculative, killed
+    plot4 = get_plot_2(jobid, "map_distr_grouped_by_host") do |graph_file|
+      data_files = (file_suffixes << "mean_task_length_per_tracker").map{|x| graph_file + "." + x + ".txt"}
+      data_ios = data_files.map{|f_name| File.new(f_name, "w")}
+      task_trackers = Hash.new {|key,value| key[value] = Array.new(6) {StatCounter.new}}
+
+      map_tasks.map{|x| x << (x[1]-x[0])/1000.0}.sort{|a,b| a.last<=>b.last}.reverse.each_with_index do |x,i|
+        # 0 means success and not is_retry and is not suspected
+        if x[2] and not x[3] and suspects.find{|tid| tid == x[4]}.nil? then
+          task_trackers[x[5]][0] << x.last 
+        end
+        # 1 is hard to tell apart from 0, skip this for now
+        if x[2] and not x[3] and not suspects.find{|tid| tid == x[4]}.nil? then
+          task_trackers[x[5]][1] << x.last
+        end
+        # 2 means not success and not is_retry
+        if not x[2] and not x[3] then
+          task_trackers[x[5]][2] << x.last
+        end
+        # 3 means successful and is_retry
+        if x[2] and x[3] then
+          task_trackers[x[5]][3] << x.last
+        end
+        # 4 means not successful and is_retry
+        if not x[2] and x[3] then
+          task_trackers[x[5]][4] << x.last
+        end
+        #also track an aggregate view of all tasks per this task tracker
+        task_trackers[x[5]][5] << x.last
+      end
+      
+      i = 0 
+      task_trackers.sort{|a,b| a[1][5].mean <=> b[1][5].mean}.reverse.each do |tt|
+        tt_name = tt[0]
+        tt[1].each_with_index do |tt_task_type, k|
+          if k==5 then
+            data_ios[5] << "#{i+1-tt_task_type.values.length/2}\t#{tt_task_type.mean}\n"
+          else
+            tt_task_type.values.each do |v|
+              data_ios[k] << "#{i+1}\t#{v}\t###{tt_name}\n"
+              data_ios[0..4].each_with_index {|dio,ind| if ind!=k : dio << "#{i+1}\t0\t#<--zero so that the #{file_suffixes[k]} task can be drawn\n" end}
+              i += 1
+            end
+          end
+        end
+        5.times {data_ios[0..4].each {|dio| dio << "#{i+1}\t0\t#<--spacer\n"}; i+=1}
+      end
+      
+      data_ios.each{|x| x.close}
+      # Return GNUPlot commands
+      "set title 'Map Durations'
+       set xlabel 'Task number'
+       set ylabel 'Duration (s)'
+       #{'set xtics 1' if map_tasks.length < 10}
+       set yrange [0:]
+       plot '#{data_files[0]}' title '#{file_suffixes[0]}' with boxes fs solid,\\
+         '#{data_files[1]}' title '#{file_suffixes[1]}' with boxes fs solid,\\
+         '#{data_files[2]}' title '#{file_suffixes[2]}' with boxes fs solid,\\
+         '#{data_files[3]}' title '#{file_suffixes[3]}' with boxes fs solid,\\
+         '#{data_files[4]}' title '#{file_suffixes[4]}' with boxes fs solid,\\
+         '#{data_files[5]}' title '#{file_suffixes[5]}' with lines lw 1"
+
+    end
+    %><img src="<%=plot4%>" /><p><ul>
+    <% file_suffixes.each do |suf| %>
+      <li><a href="<%= plot4 + "." + suf + ".txt\"/>" + suf %> data</a></li>
     <% end %>
     </ul></p>
     <%

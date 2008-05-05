@@ -9,9 +9,6 @@ if jobid != ""
 else
   title = "Please select a job"
 end
-
-num_samples = 500
-
 %>
 
 <html>
@@ -31,197 +28,75 @@ if jobid != ""
   if reportTexts.empty?
     %>No progress reports have yet been written.<%
   else
-    report = JSON.parse(reportTexts[-1]) # Look only at the last report
-    maps = report["maps"]
-    reduces = report["reduces"]
-    all_tips = maps + reduces
+    json_report = JSON.parse(reportTexts[-1]) # Look only at the last report
+    report = HadoopReport.new(json_report)
+    log.info "loaded a new HadoopReport with #{report.length} tasks"
+    log.info report.to_s
+    log.info report.tasks.select{|x| x.is_success}.length.to_s + " successful tasks"
+   
+    %><table><%
+    %><tr><td>Duration:</td><td><%=report.duration.round%>s</td></tr><%
+    %><tr><td>Hosts:</td><td><%=report.tasks.map{|x| x.tracker}.uniq.length%></td></tr><%
+    %></table><br/>
     
-    # Figure out start and end time
-    times = []
-    all_tips.each do |tip|
-      tip["tasks"].each do |task|
-        start = task["startTime"]
-        finish = task["finishTime"]
-        times << start if start != 0
-        times << finish if finish != 0
+    <%=
+    headers = %w{Tasks Count Mean Med Dev Min Max 95%}
+    values = []
+    [["Maps:","map"],["Reduces:","reduce"]].each do |x|
+      row = []
+      row << x[0]
+      row << eval("report." + x[1] + "s.length")
+      ["mean","med","std","min","max","percentile(95)"].each do |y|
+        row << eval("report." + x[1] + "_stats." + y + ".round")
       end
+      values << row
+      row = nil
     end
-    
-    all_tasks = [[],[]] 
-    suspects = []
-    #store all maps in some useful format for generating the
-    #sorted task duration graph later
-    [0,1].each do |task_type| 
-      task_array = task_type == 0 ? maps : reduces
-      task_array.each do |tip|
-        tip["tasks"].each do |task| 
-          #figure out if this was a suspect
-          is_retry = false
-          if task["taskId"] =~ /(.*)(_[1-9][0-9]*)$/ then
-            is_retry = true
-            #also mark the 0th attempt of this task as being suspect
-            suspects << $1 + "_0"
-          end
-          
-          is_success = (task["state"] == "SUCCEEDED" or task["state"] == "RUNNING") ? true : false
-          
-          #store [start_time, end_time, state, is_retry, tid, task_tracker]   
-          if task["startTime"] != 0 and ((task["finishTime"]-task["startTime"]) > 0) then
-            all_tasks[task_type] << [task["startTime"], task["finishTime"], is_success, is_retry, task["taskId"], task["taskTracker"]] 
-          end
-        end
-      end
-      log.info "Done setting up #{task_type} tasks array"
-    end
-
-    start_time = times.min
-    finish_time = times.max
-    duration = finish_time - start_time
-    %><p>Duration: <%=duration/1000%>s</p><%
-    
-    # Figure out list of nodes involved
-    nodes = []
-    all_tips.each do |tip|
-      tip["tasks"].each do |task|
-        nodes << task["taskTracker"]
-      end
-    end
-    nodes = nodes.uniq
-    %><p>Nodes: <%=nodes.length%></p><%
-    
-    %><p>Maps: <%=maps.length%></p><%
-    %><p>Reduces: <%=reduces.length%></p><%
-    
-    headings = []
-    %w[Maps Reduces].each do |type|
-      %w[Successful Failed Killed Running].each do |state|
-        headings << state + " " + type
-      end
-    end
-    seq = []
-    
-    count = Hash.new(0)
-          
-    num_samples.times do |x|
-      time = start_time + (finish_time - start_time) * (x / (num_samples-1).to_f)
-      headings.each {|h| count[h] = 0}
-      maps.each do |map_tip|
-        map_tip["tasks"].each do |map|
-          if map["startTime"] < time && (map["finishTime"] == 0 || map["finishTime"] >= time)
-            case map["state"]
-            when "SUCCEEDED"
-              count["Successful Maps"] += 1
-            when "FAILED"
-              count["Failed Maps"] += 1
-            when "KILLED"
-              count["Killed Maps"] += 1
-            else
-              count["Running Maps"] += 1
-            end
-          end
-        end
-      end
-      reduces.each do |red_tip|
-        red_tip["tasks"].each do |red|
-        if red["startTime"] < time && (red["finishTime"] == 0 || red["finishTime"] >= time)
-            case red["state"]
-            when "SUCCEEDED"
-              count["Successful Reduces"] += 1
-            when "FAILED"
-              count["Failed Reduces"] += 1
-            when "KILLED"
-              count["Killed Reduces"] += 1
-            else
-              count["Running Reduces"] += 1
-            end
-          end
-        end
-      end
-      # Create the array of entries for Gnuplot; we add up the different headings
-      # in reverse order to stack them (the first heading, Successful Maps, will have
-      # the sum of the other ones so it always comes out on top).
-      nums = []
-      sum = 0
-      headings.reverse.each do |h| 
-        nums << count[h] + sum
-        sum += count[h]
-      end
-      seq << [(time - start_time) / 1000.0] + nums.reverse
-    end
-    
-    plot = get_plot_2(jobid, "tasks2") do |graph_file|
-      data_file = graph_file + ".txt"
-      open(data_file, "w") do |data_io|
-        seq.each do |row|
-          data_io << row.join("\t") + "\n"
-        end
-      end
-      # Return GNUPlot commands
-      cmds = "set title 'Tasks vs Time'
-       set xlabel 'Time (s)'
-       set ylabel 'Tasks'
-       set yrange [0:]
-       set xrange [0:]
-       set key outside
-       "
-      items = []
-      headings.each_with_index do |h,i|
-        items << "'#{data_file}' u 1:#{i+2} w boxes fs solid title '#{h}'"
-      end
-      cmds += "plot #{items.join(', ')}"
-      cmds
-    end
-    %><img src="<%=plot%>" /><%
-    %><p><a href="<%=plot%>.txt" />Data</a></p><%
-  
-
-    plots = []
-
+    html_table headers, values
+    %>
+    <%
     ################################################################
     #first draw graphs for map tasks, then the same graphs for reduce tasks
+    plots = []
     [0,1].each do |task_type|
+      all_tasks = task_type == 0 ? report.maps : report.reduces
       type_name = task_type == 0 ? "map" : "reduce"
-      #plot the duration of each map, sorted, grouped by type
-      #there are 5 types of tasks to distinguish between:
-      #  0) not-suspected, i.e. succeeded on first try
-      #  1) suspected, succeeded
-      #  2) suspected, killed
-      #  3) speculative, succeeded
-      #  4) speculative, killed
+      
       file_suffixes = ["good", "suspect-finished", "suspect-killed",
-                  "speculative-finished", "speculative-killed"]
+                       "speculative-finished", "speculative-killed"]
       file_suffixes.map!{|x| x + "-" + type_name} 
+      
       plots <<  get_plot_2(jobid, type_name + "_distr") do |graph_file|
         data_files = file_suffixes.map{|x| graph_file + "." + x + ".txt"}
         data_ios = data_files.map{|f_name| File.new(f_name, "w")}
       
-        all_tasks[task_type].map{|x| x << (x[1]-x[0])/1000.0}.sort{|a,b| a.last<=>b.last}.reverse.each_with_index do |x,i|
-          data_line = "#{i+1}\t#{x.last}\n"
+        all_tasks.sort{|a,b| b.duration<=>a.duration}.each_with_index do |x,i|
+          data_line = "#{i+1}\t#{x.duration}\n"
           zero_data_line = "#{i+1}\t0\n"
-          # 0 means success and not is_retry and is not suspected
-          if x[2] and not x[3] and suspects.find{|tid| tid == x[4]}.nil? then data_ios[0] << data_line; 
+          
+          if x.spec_state == :good then data_ios[0] << data_line; 
           else data_ios[0] << zero_data_line
           end
-          # 1 is hard to tell apart from 0, skip this for now
-          if x[2] and not x[3] and not suspects.find{|tid| tid == x[4]}.nil? then data_ios[1] << data_line
+          
+          if x.spec_state == :suspect_good then data_ios[1] << data_line
           else data_ios[1] << zero_data_line
           end
-          # 2 means not success and not is_retry
-          if not x[2] and not x[3] then data_ios[2] << data_line
+          
+          if x.spec_state == :suspect_killed then data_ios[2] << data_line
           else data_ios[2] << zero_data_line
           end
-          # 3 means successful and is_retry
-          if x[2] and x[3] then data_ios[3] << data_line
+          
+          if x.spec_state == :spec_good then data_ios[3] << data_line
           else data_ios[3] << zero_data_line
           end
-          # 4 means not successful and is_retry
-          if not x[2] and x[3] then data_ios[4] << data_line
+          
+          if x.spec_state == :spec_killed then data_ios[4] << data_line
           else data_ios[4] << zero_data_line
           end
         end
         data_ios.each{|x| x.close}
         # Return GNUPlot commands
-        "set title '#{type_name} Durations'
+        "set title '#{type_name.capitalize} Durations'
          set xlabel 'Task number'
          set ylabel 'Duration (s)'
          set yrange [0:]
@@ -237,39 +112,32 @@ if jobid != ""
       <% end %>
       </ul></p>
       <% 
-      #plot the duration of each map, sorted
-      #there are 5 types of tasks to distinguish between:
-      #  0) not-suspected, i.e. succeeded on first try
-      #  1) suspected, succeeded
-      #  2) suspected, killed
-      #  3) speculative, succeeded
-      #  4) speculative, killed
       plots << get_plot_2(jobid, type_name+"_distr_grouped_by_task_type") do |graph_file|
         data_files = file_suffixes.map{|x| graph_file + "." + x + ".txt"}
         data_ios = data_files.map{|f_name| File.new(f_name, "w")}
         tasks = []
         5.times do tasks << StatCounter.new end
 
-        all_tasks[task_type].map{|x| x << (x[1]-x[0])/1000.0}.sort{|a,b| a.last<=>b.last}.reverse.each_with_index do |x,i|
-          # 0 means success and not is_retry and is not suspected
-          if x[2] and not x[3] and suspects.find{|tid| tid == x[4]}.nil? then
-            tasks[0] << x.last 
+        all_tasks.sort{|a,b| b.duration<=>a.duration}.each_with_index do |x,i|
+          
+         if x.spec_state == :good then
+            tasks[0] << x.duration 
           end
-          # 1 is hard to tell apart from 0, skip this for now
-          if x[2] and not x[3] and not suspects.find{|tid| tid == x[4]}.nil? then
-            tasks[1] << x.last
+          
+         if x.spec_state == :suspect_good then
+            tasks[1] << x.duration
           end
-          # 2 means not success and not is_retry
-          if not x[2] and not x[3] then
-            tasks[2] << x.last
+         
+         if x.spec_state == :suspect_killed then
+            tasks[2] << x.duration
           end
-          # 3 means successful and is_retry
-          if x[2] and x[3] then
-            tasks[3] << x.last
+         
+         if x.spec_state == :spec_good then
+            tasks[3] << x.duration
           end
-          # 4 means not successful and is_retry
-          if not x[2] and x[3] then
-            tasks[4] << x.last
+          
+         if x.spec_state == :spec_killed then
+            tasks[4] << x.duration
           end
         end
         i = 0
@@ -299,45 +167,40 @@ if jobid != ""
       <% end %>
       </ul></p>
       <% 
-      #plot the duration of each map, sorted
-      #there are 5 types of tasks to distinguish between:
-      #  0) not-suspected, i.e. succeeded on first try
-      #  1) suspected, succeeded
-      #  2) suspected, killed
-      #  3) speculative, succeeded
-      #  4) speculative, killed
       plots << get_plot_2(jobid, type_name+"_distr_grouped_by_host") do |graph_file|
-        data_files = (file_suffixes << "mean_task_length_per_tracker "+type_name).map{|x| graph_file + "." + x + ".txt"}
+        data_files = (file_suffixes << "mean_task_length_per_tracker " + 
+                      type_name).map{|x| graph_file + "." + x + ".txt"}
         data_ios = data_files.map{|f_name| File.new(f_name, "w")}
-        task_trackers = Hash.new {|key,value| key[value] = Array.new(6) {StatCounter.new}}
+        task_trackers = Hash.new {|key,value| key[value] = 
+            Array.new(6) {StatCounter.new}}
 
-        all_tasks[task_type].map{|x| x << (x[1]-x[0])/1000.0}.sort{|a,b| a.last<=>b.last}.reverse.each_with_index do |x,i|
-          # 0 means success and not is_retry and is not suspected
-          if x[2] and not x[3] and suspects.find{|tid| tid == x[4]}.nil? then
-            task_trackers[x[5]][0] << x.last 
+        all_tasks.sort{|a,b| b.duration<=>a.duration}.each_with_index do |x,i|
+          if x.spec_state == :good then
+            task_trackers[x.tracker][0] << x.duration
           end
-          # 1 is hard to tell apart from 0, skip this for now
-          if x[2] and not x[3] and not suspects.find{|tid| tid == x[4]}.nil? then
-            task_trackers[x[5]][1] << x.last
+          
+          if x.spec_state == :suspect_good then
+            task_trackers[x.tracker][1] << x.duration
           end
-          # 2 means not success and not is_retry
-          if not x[2] and not x[3] then
-            task_trackers[x[5]][2] << x.last
+         
+          if x.spec_state == :suspect_killed then
+            task_trackers[x.tracker][2] << x.duration
           end
-          # 3 means successful and is_retry
-          if x[2] and x[3] then
-            task_trackers[x[5]][3] << x.last
+        
+          if x.spec_state == :spec_good then 
+            task_trackers[x.tracker][3] << x.duration
           end
-          # 4 means not successful and is_retry
-          if not x[2] and x[3] then
-            task_trackers[x[5]][4] << x.last
+       
+          if x.spec_state == :spec_killed then 
+            task_trackers[x.tracker][4] << x.duration
           end
           #also track an aggregate view of all tasks per this task tracker
-          task_trackers[x[5]][5] << x.last
+          task_trackers[x.tracker][5] << x.duration
+
         end
         
         i = 0 
-        task_trackers.sort{|a,b| a[1][5].mean <=> b[1][5].mean}.reverse.each do |tt|
+        task_trackers.sort{|a,b| b[1][5].mean <=> a[1][5].mean}.each do |tt|
           tt_name = tt[0]
           tt[1].each_with_index do |tt_task_type, k|
             if k==5 then
@@ -350,7 +213,7 @@ if jobid != ""
               end
             end
           end
-          5.times {data_ios[0..4].each {|dio| dio << "#{i+1}\t0\t#<--spacer\n"}; i+=1}
+          (all_tasks.length/task_trackers.length).times {data_ios[0..4].each {|dio| dio << "#{i+1}\t0\t#<--spacer\n"}; i+=1}
         end
         
         data_ios.each{|x| x.close}
@@ -377,7 +240,9 @@ if jobid != ""
   end
 else
   %><ul><%
-  Dir.foreach(PROGRESS_LOG_DIR) do |file|
+  files = []
+  Dir.foreach(PROGRESS_LOG_DIR) {|f| files << f}
+  files.sort.each do |file|
     unless file =~ /^\./ # Ignore directory entires and hidden files
     %>
     <li><a href="<%=SERVER_URL+"/hadoop-tasks.rb?jobid="+file%>"><%=file%></a></li>

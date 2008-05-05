@@ -85,7 +85,12 @@ if taskid
           end
         end 
       end
-      hadoop_job_id = tip.match(/tip_(.*)_[mr]/)[1] 
+      begin
+        hadoop_job_id = tip.match(/tip_(.*)_[mr]/)[1] 
+      rescue
+        hadoop_job_id = "UNKNOWN"
+        log.error "TaskInProgress malformed: " + tip
+      end
       stats += [
         ['Hadoop Job ID', hadoop_job_id],
         ['Maps', maps],

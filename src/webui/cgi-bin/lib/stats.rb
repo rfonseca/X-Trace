@@ -21,7 +21,7 @@ class StatCounter
   def n; @values.length; end
   def max; @values.max; end
   def min; @values.min; end
-
+  def med; @values[@values.length/2] end
   def mean
     @values.inject(0) {|sum, x| sum + x} / n unless @values.empty?
   end

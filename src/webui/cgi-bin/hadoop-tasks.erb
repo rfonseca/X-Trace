@@ -40,6 +40,7 @@ if jobid != ""
     %></table><br/>
     
     <%=
+    #output a pretty table of stats
     headers = %w{Tasks Count Mean Med Dev Min Max 95%}
     values = []
     [["Maps:","map"],["Reduces:","reduce"]].each do |x|

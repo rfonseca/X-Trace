@@ -25,3 +25,7 @@ def duration_table(times, labels)
   end
   return vertical_table(table)
 end
+
+def percentify(num)
+  return (num *100).round.to_s + "%"  
+end

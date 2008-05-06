@@ -5,7 +5,7 @@ class HadoopReport
 
   # accept an array of json formatted tasks
   def initialize (task_array)
-    @maps, @reduces, @suspects, @report_times = [], [], [], []
+    @maps, @reduces, @bad_tasks, @suspects, @report_times = [], [], [], [], []
     @map_stats, @reduce_stats = StatCounter.new, StatCounter.new
     @json_maps = task_array["maps"]
     @json_reduces = task_array["reduces"]
@@ -23,8 +23,16 @@ class HadoopReport
   def duration; finish - start           end
  
   def tasks
-    if not @maps.empty? and not @reduces.empty?
+    if not @maps.nil? and not @reduces.nil?
       return @maps + @reduces
+    else
+      return []
+    end
+  end
+ 
+  def task_stats
+    if not @map_stats.nil? and not @reduce_stats.nil?
+      return @map_stats + @reduce_stats
     else
       return []
     end
@@ -82,7 +90,7 @@ class HadoopReport
 
   def set_suspects
     tasks.each do |x|
-       x.is_suspect = @suspects.find{|tid| tid == x.id}.nil?
+       x.is_suspect = !@suspects.find{|tid| tid == x.id}.nil?
     end
   end
 
@@ -96,6 +104,7 @@ class HadoopReport
     end
   end
 end
+
 
 class HadoopTask
   attr_reader :start, :finish, :state, :state, :id, :tracker, :is_retry, :is_suspect
@@ -115,7 +124,7 @@ class HadoopTask
   def finish;  @finish/1000.0  end 
 
   def duration
-    @finish-@start > 0 and @finish-@start < 100000000 ? (@finish-@start)/1000.0 : 0
+    (@finish-@start > 0 and @finish-@start < 100000000) ? (@finish-@start)/1000.0 : 0
   end 
 
   def is_success 
@@ -148,6 +157,14 @@ class HadoopTask
     if not is_success and @is_retry then
       return :spec_killed
     end
+  end
+ 
+  def to_s
+    out = ""
+    instance_variables.each do |x|
+      out << x + ": " + eval(x).to_s
+    end
+    return out
   end
 end
 

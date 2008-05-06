@@ -8,7 +8,7 @@ class StatCounter
   def initialize()
     @values = []
   end
-
+ 
   def <<(value)
     if value.respond_to? :each
       value.each{|x| self << x}
@@ -18,13 +18,23 @@ class StatCounter
     return self
   end
 
+  def +(stat_counter)
+    if stat_counter.kind_of? StatCounter then
+       retval = StatCounter.new
+       retval << @values + stat_counter.values 
+       return retval 
+    else 
+      raise "bad parameter to + function of StatCounter, arg 2 is of type " +
+          stat_counter.class.to_s
+    end
+  end
+
   def n; @values.length; end
+  def sum; @values.inject(0) {|sum, x| sum + x} end
   def max; @values.max; end
   def min; @values.min; end
   def med; @values.sort[@values.length/2] end
-  def mean
-    @values.inject(0) {|sum, x| sum + x} / n unless @values.empty?
-  end
+  def mean; sum / n unless @values.empty?  end
 
   def variance
     return nil if @values.empty?

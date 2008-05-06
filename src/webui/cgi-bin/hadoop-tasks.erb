@@ -28,7 +28,7 @@ if jobid != ""
   if reportTexts.empty?
     %>No progress reports have yet been written.<%
   else
-    json_report = JSON.parse(reportTexts[-1]) # Look only at the last report
+    json_report = JSON.parse(reportTexts[-2]) # Look only at the 2nd to last report
     report = HadoopReport.new(json_report)
     log.info "loaded a new HadoopReport with #{report.length} tasks"
     log.info report.to_s
@@ -41,14 +41,43 @@ if jobid != ""
     
     <%=
     #output a pretty table of stats
-    headers = %w{Tasks Count Mean Med Dev Min Max 95%}
+    headers = %w{Tasks Count Mean(s) Med(s) Dev(s) Min(s) Max(s) 95%(s) Sum(s) Useful(s) Useless(s)}
     values = []
-    [["Maps:","map"],["Reduces:","reduce"]].each do |x|
+    rows = []
+    rows << ["All Tasks:",report.tasks, report.task_stats]
+    rows << ["Maps:",report.maps,report.map_stats]
+    rows << ["Reduces:",report.reduces, report.reduce_stats]
+    #TODO(andyk): add rows for each of the spec_types of tasks
+    #rows << ["Good Tasks:",report.tasks.filter, report.reduce_stats]
+    rows.each do |t|
       row = []
-      row << x[0]
-      row << eval("report." + x[1] + "s.length")
-      ["mean","med","std","min","max","percentile(95)"].each do |y|
-        row << eval("report." + x[1] + "_stats." + y + ".round")
+      row << t[0]
+      row << t[1].length
+      if t[2].values.length > 0 
+        [lambda{|x|x.mean},lambda{|x|x.med},lambda{|x|x.std},lambda{|x|x.min},
+        lambda{|x|x.max},lambda{|x|x.percentile(95)}].each do |y|
+          row << y.call(t[2]).round
+        end
+
+        row << t[2].sum.round.to_s + " (#{percentify(t[2].sum/report.task_stats.sum)})"
+        useful = t[1].select{|x|x.spec_state == :good or 
+                             x.spec_state == :suspect_good or 
+                             x.spec_state == :spec_good
+                         }.map{
+                           |x|x.duration
+                         }.inject(0) {
+                           |sum,x| sum + x
+                         }.round
+        row << useful.to_s + " (#{percentify(useful/t[2].sum)})"
+
+        useless = t[1].select{|x|x.spec_state == :suspect_killed or 
+                                 x.spec_state == :spec_killed
+                             }.map{
+                               |x|x.duration
+                             }.inject(0) {|sum,x| sum + x}.round
+        row << useless.to_s + " (#{percentify(useless/t[2].sum)})"
+      else
+        (headers.length-2).times{row << "N/A"}
       end
       values << row
       row = nil
@@ -75,7 +104,9 @@ if jobid != ""
           data_line = "#{i+1}\t#{x.duration}\n"
           zero_data_line = "#{i+1}\t0\n"
           
-          if x.spec_state == :good then data_ios[0] << data_line; 
+          if x.spec_state == :good then
+            data_ios[0] << data_line; 
+            #log.info x.to_s
           else data_ios[0] << zero_data_line
           end
           
@@ -214,7 +245,7 @@ if jobid != ""
               end
             end
           end
-          (all_tasks.length/task_trackers.length).times {data_ios[0..4].each {|dio| dio << "#{i+1}\t0\t#<--spacer\n"}; i+=1}
+          (all_tasks.length/task_trackers.length/2).times {data_ios[0..4].each {|dio| dio << "#{i+1}\t0\t#<--spacer\n"}; i+=1}
         end
         
         data_ios.each{|x| x.close}

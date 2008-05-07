@@ -1,4 +1,13 @@
 <%
+#TODO:
+# 1) add parameter to url for which report (default is -2) to generate page for
+# 2) same graph as number 3, but sorted by task task-tracker-id starttime
+# 3) if the num reducers = 0, don't draw reducers
+# 4) copy phase laggard graph, for each map, mean time of reducer read size and reducer read time
+
+default_report_age = -2
+report_link_bar_radius = 3
+
 script_start_time = Time.new
 log = Logger.new(STDERR)
 log.datetime_format = "%Y-%m-%d %H:%M:%S"
@@ -9,8 +18,8 @@ if jobid != ""
 else
   title = "Please select a job"
 end
+report_age = cgi["age"].to_i < 0 ? cgi["age"].to_i : default_report_age
 %>
-
 <html>
 <head>
   <title><%=title%></title>
@@ -28,67 +37,115 @@ if jobid != ""
   if reportTexts.empty?
     %>No progress reports have yet been written.<%
   else
-    json_report = JSON.parse(reportTexts[-2]) # Look only at the 2nd to last report
+    if report_age < (0-reportTexts.length) then
+      %>Warning: report age specified (<%=report_age%>) is older than oldest report (-<%=reportTexts.length%>), using default (<%=default_report_age%>)<%
+      report_age = default_report_age
+    end
+    json_report = JSON.parse(reportTexts[report_age]) # Look only at the 2nd to last report
     report = HadoopReport.new(json_report)
     log.info "loaded a new HadoopReport with #{report.length} tasks"
     log.info report.to_s
     log.info report.tasks.select{|x| x.is_success}.length.to_s + " successful tasks"
-   
-    %><table><%
+    
+    %><h2>Report Information (viewing report #<%=report_age%> of -<%=reportTexts.length%>)</h2><%
+    oldest = 0-reportTexts.length+1
+    rad = report_link_bar_radius 
+    diam = rad*2
+    l = [oldest,report_age-rad].max
+    r = [-1,report_age+rad].min
+   if l != oldest then %><a href="hadoop-tasks.rb?jobid=<%=jobid%>&age=<%=oldest%>">&lt;Oldest</a> <% end
+   if l != oldest then %><a href="hadoop-tasks.rb?jobid=<%=jobid%>&age=<%=[oldest,report_age-diam].max%>">&lt;Previous</a> <%end
+    (l..r).each do |x|
+      %>
+      <% if x == report_age then %>
+        <span style="font-size:1.2em; font-weight:bold">
+      <%end %>
+      <a href="hadoop-tasks.rb?jobid=<%=jobid%>&age=<%=x%>"><%=x%></a>
+      <% if x == report_age then %> </span> <% end 
+    end
+    if r != -1 then %><a href="hadoop-tasks.rb?jobid=<%=jobid%>&age=<%=[-1,report_age+diam].min%>">Next&gt;</a> <% end
+    if r != -1 then %><a href="hadoop-tasks.rb?jobid=<%=jobid%>&age=<%=-1%>">Newest&gt;</a> <% end
+    %><br/><br/><table><%
     %><tr><td>Duration:</td><td><%=report.duration.round%>s</td></tr><%
     %><tr><td>Hosts:</td><td><%=report.tasks.map{|x| x.tracker}.uniq.length%></td></tr><%
     %></table><br/>
     
+    <h2>Task Information</h2>
     <%=
-    #output a pretty table of stats
-    headers = %w{Tasks Count Mean(s) Med(s) Dev(s) Min(s) Max(s) 95%(s) Sum(s) Useful(s) Useless(s)}
-    values = []
-    rows = []
-    rows << ["All Tasks:",report.tasks, report.task_stats]
-    rows << ["Maps:",report.maps,report.map_stats]
-    rows << ["Reduces:",report.reduces, report.reduce_stats]
-    #TODO(andyk): add rows for each of the spec_types of tasks
-    #rows << ["Good Tasks:",report.tasks.filter, report.reduce_stats]
-    rows.each do |t|
-      row = []
-      row << t[0]
-      row << t[1].length
-      if t[2].values.length > 0 
-        [lambda{|x|x.mean},lambda{|x|x.med},lambda{|x|x.std},lambda{|x|x.min},
-        lambda{|x|x.max},lambda{|x|x.percentile(95)}].each do |y|
-          row << y.call(t[2]).round
+    
+    make_stats_table = lambda do |rows|
+      headers = %w{Tasks Count Mean(s) Med(s) Dev(s) Min(s) Max(s) 95%(s) Sum(s) Useful(s) Useless(s)}
+      values = []
+      rows.each do |t|
+        row = []
+        row << t[0]
+        row << t[1].length
+        if t[2].values.length > 0 
+          [lambda{|x|x.mean},lambda{|x|x.med},lambda{|x|x.std},lambda{|x|x.min},
+          lambda{|x|x.max},lambda{|x|x.percentile(95)}].each do |y|
+            row << y.call(t[2]).round
+          end
+
+          row << t[2].sum.round.to_s + " (#{percentify(t[2].sum/report.task_stats.sum)})"
+          useful = t[1].select{|x|x.spec_state == :good or 
+                               x.spec_state == :suspect_good or 
+                               x.spec_state == :spec_good
+                           }.map{
+                             |x|x.duration
+                           }.inject(0) {
+                             |sum,x| sum + x
+                           }.round
+          row << useful.to_s + " (#{percentify(useful/t[2].sum)})"
+
+          useless = t[1].select{|x|x.spec_state == :suspect_killed or 
+                                   x.spec_state == :spec_killed
+                               }.map{
+                                 |x|x.duration
+                               }.inject(0) {|sum,x| sum + x}.round
+          row << useless.to_s + " (#{percentify(useless/t[2].sum)})"
+        else
+          (headers.length-2).times{row << "N/A"}
         end
-
-        row << t[2].sum.round.to_s + " (#{percentify(t[2].sum/report.task_stats.sum)})"
-        useful = t[1].select{|x|x.spec_state == :good or 
-                             x.spec_state == :suspect_good or 
-                             x.spec_state == :spec_good
-                         }.map{
-                           |x|x.duration
-                         }.inject(0) {
-                           |sum,x| sum + x
-                         }.round
-        row << useful.to_s + " (#{percentify(useful/t[2].sum)})"
-
-        useless = t[1].select{|x|x.spec_state == :suspect_killed or 
-                                 x.spec_state == :spec_killed
-                             }.map{
-                               |x|x.duration
-                             }.inject(0) {|sum,x| sum + x}.round
-        row << useless.to_s + " (#{percentify(useless/t[2].sum)})"
-      else
-        (headers.length-2).times{row << "N/A"}
+        values << row
+        row = nil
       end
-      values << row
-      row = nil
+      html_table headers, values
     end
-    html_table headers, values
+    
+    #output a pretty table of stats
+    tasks_rows = []
+    tasks_rows << ["All Tasks:",report.tasks, report.task_stats]
+    #tasks_rows << ["Good Tasks:",report.tasks(:good), report.task_stats(:good)]
+    make_stats_table.call(tasks_rows)
+    %><br/><%=
+    maps_rows = []
+    maps_rows << ["Maps:",report.maps,report.map_stats]
+    maps_rows << ["Good Maps:",report.maps(:good), report.map_stats(:good)]
+    maps_rows << ["Suspect-Finished Maps:",report.maps(:suspect_good), report.map_stats(:suspect_good)]
+    maps_rows << ["Suspect-Killed Maps:",report.maps(:suspect_killed), report.map_stats(:suspect_killed)]
+    maps_rows << ["Speculative-Finished Maps:",report.maps(:spec_good), report.map_stats(:spec_good)]
+    maps_rows << ["Speculative-Killed Maps:",report.maps(:spec_killed), report.map_stats(:spec_killed)]
+    make_stats_table.call(maps_rows)
+    %><br/><%= 
+    reduces_rows = []
+    reduces_rows << ["Reduces:",report.reduces, report.reduce_stats]
+    reduces_rows << ["Good Reduces:",report.reduces(:good), report.reduce_stats(:good)]
+    reduces_rows << ["Suspect-Finished Reduces:",report.reduces(:suspect_good), report.reduce_stats(:suspect_good)]
+    reduces_rows << ["Suspect-Killed Reduces:",report.reduces(:suspect_killed), report.reduce_stats(:suspect_killed)]
+    reduces_rows << ["Speculative-Finished Reduces:",report.reduces(:spec_good), report.reduce_stats(:spec_good)]
+    reduces_rows << ["Speculative-Killed Reduces:",report.reduces(:spec_killed), report.reduce_stats(:spec_killed)]
+    make_stats_table.call(reduces_rows)
+    
+
     %>
     <%
     ################################################################
     #first draw graphs for map tasks, then the same graphs for reduce tasks
     plots = []
-    [0,1].each do |task_type|
+    task_types = []
+    task_types << 0 if report.maps.length > 0
+    task_types << 1 if report.reduces.length > 0
+    task_types.each do |task_type|
       all_tasks = task_type == 0 ? report.maps : report.reduces
       type_name = task_type == 0 ? "map" : "reduce"
       

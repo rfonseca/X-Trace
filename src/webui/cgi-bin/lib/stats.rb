@@ -5,8 +5,14 @@
 class StatCounter
   attr_reader :values
 
-  def initialize()
-    @values = []
+  def initialize(*args)
+    if args.empty? 
+      @values = []
+    else
+     if args[0].kind_of? Array then @values = args[0] 
+     else raise "argument of type Array expected in StatCounter constructor"
+     end
+    end
   end
  
   def <<(value)

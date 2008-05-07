@@ -22,19 +22,62 @@ class HadoopReport
   def finish;   report_times.max/1000.0  end
   def duration; finish - start           end
  
-  def tasks
-    if not @maps.nil? and not @reduces.nil?
-      return @maps + @reduces
+  def tasks(*arg)
+    if arg.empty?
+      if not @maps.nil? and not @reduces.nil? then return @maps + @reduces
+      else return []
+      end
+    else return tasks.select{|x| x.spec_state == arg[0]} 
+    end
+  end
+
+  def maps(*arg)
+    if arg.empty? then return @maps
+    else return @maps.select{|x| x.spec_state == arg[0]} 
+    end
+  end
+
+  def reduces(*arg)
+    if arg.empty? then return @reduces
+    else return @reduces.select{|x| x.spec_state == arg[0]} 
+    end
+  end
+
+  def task_stats(*spec_type)
+    tmp_map_stats, tmp_reduce_stats = @map_stats, @reduce_stats
+    if not spec_type.empty?
+      tmp_map_stats = map_stats(spec_type[0])
+      tmp_reduce_stats = reduce_stats(spec_type[0])
+    end
+    
+    if not tmp_map_stats.nil? and not tmp_reduce_stats.nil?
+      return tmp_map_stats + tmp_reduce_stats
     else
       return []
     end
   end
- 
-  def task_stats
-    if not @map_stats.nil? and not @reduce_stats.nil?
-      return @map_stats + @reduce_stats
+
+  def reduce_stats(*spec_type)
+    if spec_type.empty?
+      return @reduce_stats
     else
-      return []
+      retval = StatCounter.new()
+      @reduces.select{|x| x.spec_state == spec_type[0]}.each do |task|
+        retval << task.duration
+      end
+      return retval
+    end
+  end
+  
+  def map_stats(*spec_type)
+    if spec_type.empty?
+      return @map_stats
+    else
+      retval = StatCounter.new()
+      @maps.select{|x| x.spec_state == spec_type[0]}.each do |task|
+        retval << task.duration
+      end
+      return retval
     end
   end
 

@@ -256,75 +256,88 @@ if jobid != ""
       <% end %>
       </ul></p>
       <% 
-      plots << get_plot_2(jobid, type_name+"_distr_grouped_by_host") do |graph_file|
-        data_files = (file_suffixes << "mean_task_length_per_tracker " + 
-                      type_name).map{|x| graph_file + "." + x + ".txt"}
-        data_ios = data_files.map{|f_name| File.new(f_name, "w")}
-        task_trackers = Hash.new {|key,value| key[value] = 
-            Array.new(6) {StatCounter.new}}
+      
+      draw_task_plot_by_task_tracker = lambda do |sort_func, n_name|
+        get_plot_2(jobid, type_name+"_distr_grouped_by_host"+n_name) do |graph_file|
+          data_files = (file_suffixes << "mean_task_length_per_tracker " + 
+                        type_name).map{|x| graph_file + "." + x + n_name + ".txt"}
+          data_ios = data_files.map{|f_name| File.new(f_name, "w")}
+          task_trackers = Hash.new {|key,value| key[value] = 
+              Array.new(6) {StatCounter.new}}
 
-        all_tasks.sort{|a,b| b.duration<=>a.duration}.each_with_index do |x,i|
-          if x.spec_state == :good then
-            task_trackers[x.tracker][0] << x.duration
+          all_tasks.sort{|a,b| b.duration<=>a.duration}.each_with_index do |x,i|
+            if x.spec_state == :good then
+              task_trackers[x.tracker][0] << x.duration
+            end
+            
+            if x.spec_state == :suspect_good then
+              task_trackers[x.tracker][1] << x.duration
+            end
+           
+            if x.spec_state == :suspect_killed then
+              task_trackers[x.tracker][2] << x.duration
+            end
+          
+            if x.spec_state == :spec_good then 
+              task_trackers[x.tracker][3] << x.duration
+            end
+         
+            if x.spec_state == :spec_killed then 
+              task_trackers[x.tracker][4] << x.duration
+            end
+            #also track an aggregate view of all tasks per this task tracker
+            task_trackers[x.tracker][5] << x.duration
+
           end
           
-          if x.spec_state == :suspect_good then
-            task_trackers[x.tracker][1] << x.duration
-          end
-         
-          if x.spec_state == :suspect_killed then
-            task_trackers[x.tracker][2] << x.duration
-          end
-        
-          if x.spec_state == :spec_good then 
-            task_trackers[x.tracker][3] << x.duration
-          end
-       
-          if x.spec_state == :spec_killed then 
-            task_trackers[x.tracker][4] << x.duration
-          end
-          #also track an aggregate view of all tasks per this task tracker
-          task_trackers[x.tracker][5] << x.duration
-
-        end
-        
-        i = 0 
-        task_trackers.sort{|a,b| b[1][5].mean <=> a[1][5].mean}.each do |tt|
-          tt_name = tt[0]
-          tt[1].each_with_index do |tt_task_type, k|
-            if k==5 then
-              data_ios[5] << "#{i+1-tt_task_type.values.length/2}\t#{tt_task_type.mean}\t#<--#{tt_name}\n"
-            else
-              tt_task_type.values.each do |v|
-                data_ios[k] << "#{i+1}\t#{v}\t###{tt_name}\n"
-                data_ios[0..4].each_with_index {|dio,ind| if ind!=k : dio << "#{i+1}\t0\t#<--zero so that the #{file_suffixes[k]} task can be drawn\n" end}
-                i += 1
+          i = 0 
+          task_trackers.sort{|a,b| sort_func.call(a,b) }.each do |tt|
+            tt_name = tt[0]
+            tt[1].each_with_index do |tt_task_type, k|
+              if k==5 then
+                data_ios[5] << "#{i+1-tt_task_type.values.length/2}\t#{tt_task_type.mean}\t#<--#{tt_name}\n"
+              else
+                tt_task_type.values.each do |v|
+                  data_ios[k] << "#{i+1}\t#{v}\t###{tt_name}\n"
+                  data_ios[0..4].each_with_index {|dio,ind| if ind!=k : dio << "#{i+1}\t0\t#<--zero so that the #{file_suffixes[k]} task can be drawn\n" end}
+                  i += 1
+                end
               end
             end
+            (all_tasks.length/task_trackers.length/2).times {data_ios[0..4].each {|dio| dio << "#{i+1}\t0\t#<--spacer\n"}; i+=1}
           end
-          (all_tasks.length/task_trackers.length/2).times {data_ios[0..4].each {|dio| dio << "#{i+1}\t0\t#<--spacer\n"}; i+=1}
-        end
-        
-        data_ios.each{|x| x.close}
-        # Return GNUPlot commands
-        "set title '#{type_name.capitalize} Durations'
-         set xlabel 'Task number'
-         set ylabel 'Duration (s)'
-         set yrange [0:]
-         plot '#{data_files[0]}' title '#{file_suffixes[0]}' with boxes fs solid,\\
-           '#{data_files[1]}' title '#{file_suffixes[1]}' with boxes fs solid,\\
-           '#{data_files[2]}' title '#{file_suffixes[2]}' with boxes fs solid,\\
-           '#{data_files[3]}' title '#{file_suffixes[3]}' with boxes fs solid,\\
-           '#{data_files[4]}' title '#{file_suffixes[4]}' with boxes fs solid,\\
-           '#{data_files[5]}' title '#{file_suffixes[5]}' with lines lw 1"
+          
+          data_ios.each{|x| x.close}
+          # Return GNUPlot commands
+          "set title '#{type_name.capitalize} Durations'
+           set xlabel 'Task number'
+           set ylabel 'Duration (s)'
+           set yrange [0:]
+           plot '#{data_files[0]}' title '#{file_suffixes[0]}' with boxes fs solid,\\
+             '#{data_files[1]}' title '#{file_suffixes[1]}' with boxes fs solid,\\
+             '#{data_files[2]}' title '#{file_suffixes[2]}' with boxes fs solid,\\
+             '#{data_files[3]}' title '#{file_suffixes[3]}' with boxes fs solid,\\
+             '#{data_files[4]}' title '#{file_suffixes[4]}' with boxes fs solid,\\
+             '#{data_files[5]}' title '#{file_suffixes[5]}' with lines lw 1"
 
+        end
       end
-      %><img src="<%=plots.last%>" /><p><ul>
-      <% file_suffixes.each do |suf| %>
-        <li><a href="<%= plots.last + "." + suf + ".txt\"/>" + suf %> data</a></li>
-      <% end %>
+      plots << draw_task_plot_by_task_tracker.call(lambda{|a,b| b[1][5].mean <=> a[1][5].mean}, "sorted_by_mean")
+     
+      sort_trackers = lambda{|a,b| a.match(/tracker_.*(\d\d\d):/)[1] <=> b.match(/tracker_.*(\d\d\d):/)[1]}
+      f_plot = draw_task_plot_by_task_tracker.call(lambda{|a,b| sort_trackers.call(b[0], a[0])}, "sorted_by_task_tracker")
+
+      %>
+      <img src="<%=plots.last%>" /><p><ul>
+      <%file_suffixes.each do |suf| %>
+      <li><a href="<%= plots.last + "." + suf + "sorted_by_mean.txt\"/>" + suf %> data</a></li> <% 
+      end %> 
       </ul></p>
-      <%
+      <img src="<%=f_plot%>" /><p><ul>
+      <%file_suffixes.each do |suf| %>
+      <li><a href="<%= f_plot + "." + suf + "sorted_by_task_tracker.txt\"/>" + suf %> data</a></li> <% 
+      end %> 
+      </ul></p> <%
     end
   end
 else

@@ -31,4 +31,4 @@ for i in `ls lib`; do
  CLASSPATH=./lib/$i:$CLASSPATH
 done
 
-java -Dlog4j.configuration=log4j-server.properties -Dxtrace.backend.webui.dir=$BASE/../webui -cp $CLASSPATH edu.berkeley.xtrace.server.XTraceServer $DATA_DIR
+java -Dlog4j.configuration=log4j-server.properties -Dxtrace.backend.webui.dir=$BASE/webui -cp $CLASSPATH edu.berkeley.xtrace.server.XTraceServer $DATA_DIR

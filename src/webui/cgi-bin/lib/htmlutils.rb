@@ -1,5 +1,13 @@
-def html_table(headers, values)
-  html = "<table>\n"
+def html_table(headers, values, *opts)
+  style = ""
+  if !opts[0].nil? and !opts[0].empty? then
+    style = 'style="'
+    opts[0].each do |name,value|
+      style << name.to_s + ":" + value + ";"
+    end
+    style << '"'
+  end
+  html = "<table #{style}>\n"
   html << "<tr>" << headers.map{|x| "<th>#{x}</th>"}.join << "</tr>\n"
   values.each do |value|
     html << "<tr>" << value.map{|x| "<td>#{x}</td>"}.join << "</tr>\n"

@@ -1,10 +1,11 @@
 <%
 #TODO:
-# 1) add parameter to url for which report (default is -2) to generate page for
-# 2) same graph as number 3, but sorted by task task-tracker-id starttime
-# 3) if the num reducers = 0, don't draw reducers
-# 4) copy phase laggard graph, for each map, mean time of reducer read size and reducer read time
-
+# 1) add lines to top of reduce task duration graphs to show the 3 phases
+#   a) requires me to add a subclass of HadoopTask to hadoop_reports.rb
+#      will have members for the copy and sort phase complete timestamps
+# 2) copy phase laggard graph, for each map, mean time of reducer read size and reducer read time
+# 3) new task duration graph, sorted by task start time
+#
 default_report_age = -2
 report_link_bar_radius = 3
 
@@ -109,7 +110,7 @@ if jobid != ""
         values << row
         row = nil
       end
-      html_table headers, values
+      html_table headers, values, :width => "800px"
     end
     
     #output a pretty table of stats

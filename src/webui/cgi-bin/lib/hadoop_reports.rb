@@ -16,11 +16,11 @@ class HadoopReport
     set_stats
   end
 
-  def length;   @json_tasks.length       end
-  def empty?;   tasks.empty?             end
-  def start;    report_times.min/1000.0  end
-  def finish;   report_times.max/1000.0  end
-  def duration; finish - start           end
+  def length;     @json_tasks.length      end
+  def empty?;     tasks.empty?            end
+  def start_time; report_times.min/1000.0 end
+  def end_time;   report_times.max/1000.0 end
+  def duration;   end_time - start_time   end
  
   def tasks(*arg)
     if arg.empty?
@@ -91,10 +91,10 @@ class HadoopReport
   def set_report_times
     @json_tasks.each do |tip|
       tip["tasks"].each do |task|
-        start = task["startTime"]
-        finish = task["finishTime"]
-        @report_times << start if start != 0
-        @report_times << finish if finish != 0
+        start_time = task["startTime"]
+        end_time = task["finishTime"]
+        @report_times << start_time if start_time != 0
+        @report_times << end_time if end_time != 0
       end
     end
   end
@@ -106,10 +106,21 @@ class HadoopReport
        tip["tasks"].each do |task| 
          
          #create new task [tid, start_time, end_time, state, task_tracker]   
-         curr_task = HadoopTask.new(task["taskId"],
-              task["startTime"], task["finishTime"],
-              task["state"], task["taskTracker"])
-         
+         curr_task_hash = {
+              :id => task["taskId"],
+              :start_time => task["startTime"],
+              :end_time => task["finishTime"],
+              :state => task["state"],
+              :tracker => task["taskTracker"]}
+         if is_reduce
+           curr_task_hash.merge!({
+              :shuffle_end_time => task["shuffleFinishTime"],
+              :sort_end_time => task["sortFinishTime"]})
+           curr_task = HadoopReduceTask.new(curr_task_hash)
+         else
+           curr_task = HadoopTask.new(curr_task_hash)
+         end
+
          #figure out if curr_task was a suspect
          if curr_task.id =~ /(.*)(_[1-9][0-9]*)$/ then
            curr_task.is_retry = true
@@ -118,7 +129,7 @@ class HadoopReport
          end
 
          #catch bad timestamps
-         if curr_task.start != 0 and curr_task.duration > 0 then
+         if curr_task.start_time != 0 and curr_task.duration > 0 then
            #save the maps and reducers
            if is_reduce : @reduces << curr_task
            else @maps << curr_task
@@ -150,24 +161,30 @@ end
 
 
 class HadoopTask
-  attr_reader :start, :finish, :state, :state, :id, :tracker, :is_retry, :is_suspect
+  attr_reader :start_time, :end_time, :state, :state, :id, :tracker, :is_retry, :is_suspect
   attr_writer :is_retry, :is_suspect
 
-  def initialize (task_id, start_time, end_time, state, tracker, is_retry=false)
-    @id = task_id
-    @start = start_time
-    @finish = end_time
-    @state = state
-    @tracker = tracker
-    @is_retry = is_retry
-    @is_suspect = false
+  def initialize (args)
+    args.each do |key,val|
+      instance_variable_set("@"+key.to_s, val) 
+    end
   end
 
-  def start;   @start/1000.0   end 
-  def finish;  @finish/1000.0  end 
+#  def initialize (task_id, start_time, end_time, state, tracker, is_retry=false)
+#    @id = task_id
+#    @start_time = start_time
+#    @end_time = end_time
+#    @state = state
+#    @tracker = tracker
+#    @is_retry = is_retry
+#    @is_suspect = false
+#  end
+
+  def start_time;   @start_time/1000.0   end 
+  def end_time;  @end_time/1000.0  end 
 
   def duration
-    (@finish-@start > 0 and @finish-@start < 100000000) ? (@finish-@start)/1000.0 : 0
+    (@end_time-@start_time > 0 and @end_time-@start_time < 100000000) ? (@end_time-@start_time)/1000.0 : 0
   end 
 
   def is_success 
@@ -211,3 +228,21 @@ class HadoopTask
   end
 end
 
+class HadoopReduceTask < HadoopTask
+  attr_reader :shuffle_end_time, :sort_end_time
+
+  def initialize (args)
+    args.each do |key,val|
+      instance_variable_set("@"+key.to_s, val) 
+    end
+  end
+
+  def shuffle_duration
+    (@shuffle_end_time-@start_time > 0 and @shuffle_end_time-@start_time < 100000000) ? (@shuffle_end_time-@start_time)/1000.0 : 0
+  end
+
+  def sort_duration
+    (@sort_end_time-@start_time > 0 and @sort_end_time-@start_time < 100000000) ? (@sort_end_time-@start_time)/1000.0 : 0
+  end
+
+end

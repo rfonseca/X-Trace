@@ -52,7 +52,7 @@ It provides a logging-like API for the programmer, allowing the recording of
 events during the execution. X-Trace records the causal relations among these
 events in a deterministic fashion, across threads, software layers, different
 machines, and potentially different network layers and administrative domains.
-X-Trace groups events (which we also call operations) in tasks, which are sets
+X-Trace groups events, which we also call operations, to tasks. These are sets
 of causally related events with a definite start. Events in a task form a
 directed acyclic graph (DAG). Each task is given a unique task identifier, and
 each event within a task is given an identifier which is unique within the
@@ -538,7 +538,7 @@ T and OpId a.</p>
 <table class="docutils footnote" frame="void" id="id4" rules="none">
 <colgroup><col class="label" /><col /></colgroup>
 <tbody valign="top">
-<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>X-Trace Specification Document - Report Format. <a class="reference external" href="http://www.x-trace.net">http://www.x-trace.net</a></td></tr>
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>X-Trace Specification Document - Report Format. <a class="reference" href="http://www.x-trace.net">http://www.x-trace.net</a></td></tr>
 </tbody>
 </table>
 </div>

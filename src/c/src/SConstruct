@@ -1,0 +1,18 @@
+# ----------
+# SConscript
+# ----------
+
+import os.path
+
+
+#env = Environment(CCFLAGS= [ '-O3', '-Wall', '-fPIC'])
+env = Environment(CCFLAGS= [ '-g', '-Wall', '-fPIC'])
+
+headers = ['XtrMetadata-c.h']
+
+code    = ['XtrMetadata.c']
+
+lib_C = env.Library(target = 'xtr-c',
+                     source = code)
+
+driver_prog = env.Program('driver.c', LIBS=['xtr-c'], LIBPATH='.')

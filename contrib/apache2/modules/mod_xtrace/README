@@ -1,0 +1,30 @@
+X-Trace Apache module
+
+Rodrigo Fonseca
+
+This is still experimental. Not part of release. Not ready for use.
+Tested on: apache 2.2.9 on linux, 
+           gcc version 4.3.1 20080708 (Red Hat 4.3.1-4) (GCC)
+
+Todo:
+Correcly handle case when X-Trace metadata is changed between start and end
+ - Test with CGI, mod_perl, mod_php, mod_proxy
+Add configuration parameters
+ - per directory frequency of X-trace generation
+ - whether to log or just add X-Trace metadata
+ - url to see the X-Trace report, to be sent to client
+ - size of X-Trace taskId generated (4, 8, 12, or 20 bytes)
+ - size of X-Trace opId generated (4 or 8 bytes)
+
+
+Changes:
+
+--------
+Jul 16 2008
+Wrote logic to log a report when receiving request and sending response.
+Fixed a bug in report generation with incoming edges when opId was > 4 bytes
+Added a hook that adds X-Trace metadata to incoming requests, before they are processed, if not already present
+-------
+Jul 15 2008
+Added a hook that adds X-Trace metadata to outgoing requests
+Successfully compiled, linked, and ran C++ module using C++ X-Trace library

@@ -1,4 +1,5 @@
 #include <cxxtest/TestSuite.h>
+#include <typeinfo>
 #include <iostream>
 #include "Xtr.h"
 using namespace std;

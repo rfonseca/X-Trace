@@ -28,6 +28,7 @@
 
 #include <cstdlib>
 #include <cassert>
+#include <cstring>
 
 #include "XtrConstants.h"
 #include "XtrOption.h"
@@ -278,7 +279,7 @@ private:
 class Metadata 
 {
 public:
-    /** Default constructor. Creates a new Metadata with invalid
+    /** Default constructor, creates a new Metadata with invalid
      *  taskId and 0 opId, and with no options.
      *  If called with no parameters, the taskId is set to 4.
      *  Version is set to XTR_CURRENT_VERSION
@@ -440,10 +441,37 @@ public:
     xtr_result setSeverity(u_int8_t s);
 
     /* Serialization related functions */
+    /** Returns the size of the metadata in bytes when packed */
     size_t sizeAsBytes() const;
+
+    /** Converts the metadata in memory to a packed byte
+     * representation.
+     * @param to pointer to a prealocated array
+     * @param len pointer to an integer.<ul>
+     *            <li> input: the maximum size of the array
+     *            <li> output: the actual size used (equal to the result
+     *            of sizeAsBytes()
+     * @return xtr_result XTR_FAIL if *len < sizeAsBytes(), or if to
+     * or len are NULL 
+     */
     xtr_result pack(u_int8_t *to, size_t *len) const;
 
+    /** Returns the size of the metadata when represented as a
+     * string, not including the terminating '\0' character.
+     * This is consistent with strlen called on a string
+     * representation of the metadata. */
+
     size_t sizeAsString() const {return sizeAsBytes() * 2;};
+    /** Converts the metadata to a string in the preallocated
+     * buffer.
+     * @param to preallocated buffer. If the call is successful, the
+     * contents of buf will be the string representation of the
+     * metadata. Otherwise (if len is insufficient, < sizeAsString() +
+     * 1), buf will have '\0' in its first position.
+     * @param len maximum size of the buffer. This must be at least
+     * sizeAsString() + 1.
+     * @return pointer to 'to'.
+     */
     char* toString(char* to, size_t len) const;
 
 private:

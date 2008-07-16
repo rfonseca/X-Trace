@@ -78,15 +78,11 @@ xtr_status alloc_taskid(xtr_task_t ** taskid, int size, uint8_t * data);
  *    size:  length of task id, in bytes
  *    data:  initial contents of the task id, must be at least 'size' byte
  *           long
- *    len:   size of the taskid buffer, in bytes
-
  * Returns:
- *    len: on return it will hold the number of bytes used to hold this taskid
  *    XTR_SUCCESS on success
  *    XTR_PARAM if a parameter is invalid
- *    XTR_BUFSZ if 'len' is not large enough to hold the data structure
  */
-xtr_status init_taskid(void * taskid, int * len, int size, uint8_t * data);
+xtr_status init_taskid(void * taskid, int size, uint8_t * data);
 
 /**
  * Allocate and initialize a new task id with given size and random contents
@@ -109,15 +105,72 @@ xtr_status alloc_rand_taskid(xtr_task_t ** taskid, int size);
  * Parameters:
  *    taskid: Pointer to the memory that will be initialized
  *    size:  length of task id, in bytes
- *    len: size of the taskid buffer, in bytes
  *
  * Returns:
- *    len: on return it will hold the number of bytes used to hold this taskid
  *    XTR_SUCCESS on success
  *    XTR_PARAM if a parameter is invalid
- *    XTR_BUFSZ if 'len' if not large enough to hold the data structure
  */
-xtr_status init_rand_taskid(void * taskid, int * len, int size);
+xtr_status init_rand_taskid(void * taskid, int size);
+
+/**
+ * Allocate and initialize a new operation id with given size and initial
+ * contents
+ *
+ * Parameters:
+ *    opid: Pointer to the pointer that will be initialized
+ *    size:  length of operation id, in bytes
+ *    data:  initial contents of the operation id, must be at least 'size' byte
+ *           long
+ * Returns:
+ *    XTR_SUCCESS on success
+ *    XTR_NOMEM if out of memory
+ *    XTR_PARAM if a parameter is invalid
+ */
+xtr_status alloc_opid(xtr_opid_t ** opid, int size, uint8_t * data);
+
+/**
+ * Initialize a new operation id with given size and initial contents using
+ * user-provided memory
+ *
+ * Parameters:
+ *    opid:  Pointer to the memory that will be initialized
+ *    size:  length of operation id, in bytes
+ *    data:  initial contents of the operation id, must be at least
+ *           'size' byte long
+ * Returns:
+ *    XTR_SUCCESS on success
+ *    XTR_PARAM if a parameter is invalid
+ */
+xtr_status init_opid(void * opid, int size, uint8_t * data);
+
+/**
+ * Allocate and initialize a new operation id with given size and random
+ * contents
+ *
+ * Parameters:
+ *    opid:  Pointer to the pointer that will be initialized
+ *    size:  length of operation id, in bytes
+ *
+ * Returns:
+ *    XTR_SUCCESS on success
+ *    XTR_NOMEM if out of memory
+ *    XTR_PARAM if a parameter is invalid
+ */
+xtr_status alloc_rand_opid(xtr_opid_t ** opid, int size);
+
+/**
+ * Initialize a new operation id with given size and random contents using
+ * user-provided memory
+ *
+ * Parameters:
+ *    opid: Pointer to the memory that will be initialized
+ *    size:  length of operation id, in bytes
+ *
+ * Returns:
+ *    XTR_SUCCESS on success
+ *    XTR_PARAM if a parameter is invalid
+ */
+xtr_status init_rand_opid(void * opid, int size);
 
 /**************** Accessor/Setter Routines ******************/
 
@@ -154,5 +207,17 @@ xtr_status get_taskid(xtr_task_t * taskid, void * buf, int * len);
  */
 xtr_status set_taskid(xtr_task_t * taskid, uint8_t * contents, int len);
 
+/**
+ * Task ID -- Test for equality 
+ *
+ * Parameters:
+ *    taskid1: the first task id to test
+ *    taskid2: the second task id to test
+ *
+ * Returns:
+ *    result of equality test
+ *    
+ */
+bool taskid_eq(xtr_task_t * taskid1, xtr_task_t * taskid2);
 
 #endif

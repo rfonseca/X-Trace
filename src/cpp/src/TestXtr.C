@@ -417,8 +417,9 @@ public:
     }
     void testOpId() {
         OpId id;
-        u_int8_t iv[4] = {0,0,0,0};
-        u_int8_t  v[4] = {1,2,3,4};
+        OpId id8(8);
+        u_int8_t iv[8] = {0,0,0,0,0,0,0,0};
+        u_int8_t  v[8] = {1,2,3,4,5,6,7,8};
         
         //default constructor: all 0's
         TS_ASSERT_SAME_DATA(id.getBytes(), iv, 4);
@@ -432,6 +433,11 @@ public:
         TS_ASSERT_SAME_DATA(id.getBytes(), iv, 4);
         //set bytes to invalid length
         TS_ASSERT_EQUALS(id.setBytes(v, 3), XTR_FAIL);
+        //8 bytes
+        TS_ASSERT_SAME_DATA(id8.getBytes(), iv, 8);
+        TS_ASSERT_EQUALS(id8.getLength(), 8u);
+        TS_ASSERT_EQUALS(id8.setBytes(v,8), XTR_SUCCESS);
+        TS_ASSERT_SAME_DATA(id8.getBytes(), v, 8);
     }
     void testXtrTaskIdisEqual() {
         u_int8_t b0[20] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19};
@@ -1251,16 +1257,17 @@ public:
         x1.setSeverity(OptionSeverity::DEBUG);
 
         e1.addEdge(x1); //this will set the severity and the chainId of the 
-                        // event.
+                        // event. Will also set the opId length of
+                        // the event.
 
-        x1.setRandomOpId();
+        x1.setRandomOpId(); 
         e1.addEdge(x1,EventEdge::UP);
     
         x2.setRandomTaskId();
-        x2.setRandomOpId();
+        x2.setRandomOpId(); 
 
         x3.setTaskId(x1.getTaskId());
-        x3.setRandomOpId();
+        x3.setRandomOpId(8); //will not change the event opId length
         x3.setChainId(0x2344);
 
         //fails because of different task id
@@ -1274,6 +1281,7 @@ public:
         TS_ASSERT(x4.getSeverity() == OptionSeverity::DEBUG);
         TS_ASSERT(x4.getTaskId().isEqual(x1.getTaskId()));
         TS_ASSERT_EQUALS(x4.getChainId(),x1.getChainId());
+        TS_ASSERT_EQUALS(x4.getOpId().getLength(), x1.getOpId().getLength());
         e1.fork();
         x4 = e1.getMetadata();
         TS_ASSERT_DIFFERS(x4.getChainId(),x3.getChainId());

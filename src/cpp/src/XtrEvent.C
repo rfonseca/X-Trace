@@ -27,6 +27,7 @@
 
 #include "XtrEvent.h"
 #include <time.h>
+#include <cstring>
 #include <sys/time.h>
 /* TODO:
    2. merge options, add options to the metadata
@@ -70,9 +71,9 @@ Event::setTaskId(const TaskId& taskId)
 }
 
 xtr_result
-Event::setRandomOpId()
+Event::setRandomOpId(size_t opIdLen)
 {
-    my_xtr.setRandomOpId();
+    my_xtr.setRandomOpId(opIdLen);
     return XTR_SUCCESS;
 }
 
@@ -101,7 +102,7 @@ Event::addEdge(const Metadata& xtr, EventEdge::EdgeDir dir)
     u_int16_t chain_id;
     u_int8_t severity;
 
-    //set the taskId or verifies that it is the same
+    //sets the taskId or verifies that it is the same
     if (my_xtr.getTaskId().isValid() &&
         !my_xtr.getTaskId().isEqual(xtr.getTaskId())) {
         //trying to set a different taskId
@@ -115,6 +116,8 @@ Event::addEdge(const Metadata& xtr, EventEdge::EdgeDir dir)
     if (in_edges.size() == 0) {
         //this is the first edge
         my_xtr.setTaskId(xtr.getTaskId());
+        //set the opId length
+        my_xtr.setRandomOpId(xtr.getOpId().getLength());
         //get the edge's chainId
         assert(out_chain_ids.size() == 1);
         out_chain_ids[0] = chain_id;  
@@ -181,7 +184,7 @@ string
 Event::getReport() 
 {
     char buf[1000];
-    char buf2[10];
+    char buf2[17];
     char* p;
     size_t l,ll;
     Metadata xtr(my_xtr);

@@ -75,7 +75,7 @@ public:
     /** Sets the opId of the current context to a random one.
      *  @return XTR_SUCCESS
      */
-    xtr_result setRandomOpId();
+    xtr_result setRandomOpId(size_t opIdLen = 4);
 
     /** Sets the severity of the event context. This has the effect of
      *  changing both the severity that is propagated by getMetadata and
@@ -86,8 +86,9 @@ public:
     /** Adds an edge to the context. This has several effects on the context.
      *  The default type of edge added is 'NEXT'.
      *  The first edge added does:
-     *    1. sets the taskId of the context if not already set
+     *    1. sets the taskId of the event if not already set
      *    2. logically adds an edge to the report
+     *    3. sets the size of the event opId
      *  A subsequent edge added with a different TaskId has no effect. It is
      *    an error. 
      *    This is added to the report as an error report.

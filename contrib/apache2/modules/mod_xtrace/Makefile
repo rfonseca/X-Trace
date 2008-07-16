@@ -14,8 +14,9 @@ APACHECTL=apachectl
 
 #   additional defines, includes and libraries
 #DEFS=-Dmy_define=my_value
-INCLUDES=-I/var/tmp/xtr/xtraceprj/trunk/src/cpp/build/include
-LIBS=-L/var/tmp/xtr/xtraceprj/trunk/src/cpp/build/lib -lxtr-cpp
+XTRACE=../../../../src/cpp/build
+INCLUDES=-I$(XTRACE)/include
+LIBS=-L$(XTRACE)/lib -lxtr-cpp
 
 #   the default target
 all: local-shared-build

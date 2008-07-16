@@ -1,10 +1,12 @@
 X-Trace Apache module
 
-Rodrigo Fonseca
+ Rodrigo Fonseca
+ 
+ This is still experimental. Not part of release. Not ready for use.
+ Tested on: apache 2.2.9 on linux, 
+            gcc version 4.3.1 20080708 (Red Hat 4.3.1-4) (GCC)
+ 
 
-This is still experimental. Not part of release. Not ready for use.
-Tested on: apache 2.2.9 on linux, 
-           gcc version 4.3.1 20080708 (Red Hat 4.3.1-4) (GCC)
 
 Todo:
 Correcly handle case when X-Trace metadata is changed between start and end
@@ -15,12 +17,18 @@ Add configuration parameters
  - url to see the X-Trace report, to be sent to client
  - size of X-Trace taskId generated (4, 8, 12, or 20 bytes)
  - size of X-Trace opId generated (4 or 8 bytes)
+ - agent for logs
 
+Compiling:
+ - had to change apxs to include g++ as the compiler
+   /usr/lib/httpd/build/config_vars.mk, add CXX=g++
+ - linking is still wrong. Maybe I'll write my own makefile...
 
 Changes:
 
 --------
 Jul 16 2008
+Tested with X-Trace metadata set by the browser.
 Wrote logic to log a report when receiving request and sending response.
 Fixed a bug in report generation with incoming edges when opId was > 4 bytes
 Added a hook that adds X-Trace metadata to incoming requests, before they are processed, if not already present
@@ -28,3 +36,14 @@ Added a hook that adds X-Trace metadata to incoming requests, before they are pr
 Jul 15 2008
 Added a hook that adds X-Trace metadata to outgoing requests
 Successfully compiled, linked, and ran C++ module using C++ X-Trace library
+
+-------
+Divide in two parts:
+ stamp and record
+
+Stamp: adds X-Trace metadata to the request if not already present
+       adds X-Trace metadata to the response if accessibe to the module
+       adds URL for viewing reports
+
+Record: records at least in the input and output phases.
+

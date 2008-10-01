@@ -1,3 +1,5 @@
+Welcome to the developers version of X-Trace 2.0. You most likely have checked this out of SVN since this is not the distribution package of X-Trace.
+
 X-Trace is a framework for tracing the execution of distributed systems.  It
 provides a logging-like API for the programmer, allowing the recording of
 events during the execution.  The distinguishing feature of X-Trace is that it

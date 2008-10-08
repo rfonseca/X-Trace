@@ -12,10 +12,15 @@ look at the scripts in bin. The distribution doesn't do this at this point.
 If you downloaded X-Trace from the svn repository, you can build it from the
 source using ant.  Let <xtrace> be the trunk directory of the repository.
 
-> cd <xtrace>/java
+> cd <xtrace>/src/java
 > ant
 
-The distribution is now in <xtrace>/java/build/dist.
+The distribution is now in <xtrace>/java/src/build/dist, you can now enter that
+directory and run the X-Trace backend (check that you have all necessary 
+dependencies, see Dependencies below).
+
+> cd build/dist
+> bin/backend.sh
 
 You can also build the documentation by doing
 
@@ -25,7 +30,14 @@ The javadoc will be in <xtrace>/java/build/dist/docs/api
 
 2. From the release file
 
-If you obtained a release file, x-trace-2.0-<date>.tar.gz or .zip, extract it into your directory of choice.
+If you obtained a release file, x-trace-2.0-<date>.tar.gz or .zip, extract it in
+to your directory of choice (which we'll call <xtrace> for our example below).
+Run the backend with the following.
+
+> bin/backend.sh
+
+After the backend is running you should be able to visit http://localhost:8080
+with your web browser to see the web portal to the X-Trace backend.
 
 Dependencies
 

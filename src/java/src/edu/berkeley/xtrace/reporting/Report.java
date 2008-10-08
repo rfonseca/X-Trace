@@ -69,7 +69,6 @@ import edu.berkeley.xtrace.XTraceMetadata;
  * @author George Porter
  */
 public class Report {
-	private static final Logger LOG = Logger.getLogger(Report.class);
 
 	private StringBuilder buf;
 	private HashMap<String, List<String>> map; // lazily-built to enhance performance
@@ -167,7 +166,6 @@ public class Report {
 		try {
 			xtr = XTraceMetadata.createFromString(xtrstr);
 		} catch (Exception e) {
-			LOG.info("Corrupt metadata: " + xtrstr);
 			return null;
 		}
 
@@ -232,12 +230,10 @@ public class Report {
 		try {
 			String firstLine = in.readLine();
 			if (!firstLine.equals("X-Trace Report ver 1.0")) {
-				LOG.warn("Corrupt report can't be converted to a map (got: " + firstLine + ")");
 				buf = new StringBuilder("X-Trace Report ver 1.0\n");
 				map = null;
 			}
 		} catch (IOException e) {
-			LOG.warn("Internal I/O Error", e);
 			buf = new StringBuilder("X-Trace Report ver 1.0\n");
 			map = null;
 		}
@@ -253,7 +249,6 @@ public class Report {
 				}
 			}
 		} catch (IOException e) {
-			LOG.warn("Internal I/O Error", e);
 			buf = new StringBuilder("X-Trace Report ver 1.0\n");
 			map = null;
 		}

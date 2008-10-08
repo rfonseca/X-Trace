@@ -21,6 +21,7 @@
 
   <property name="xtrace-name" value="xtrace-2.0" />
   <property name="jar-name"    value="${xtrace-name}.jar"/>
+	<property name="client-jar-name" value="${xtrace-name}-client.jar"/>
 
   <path id="compile.classpath">
     <pathelement location="${lib.dir}/jetty-6.1.6.jar" />
@@ -67,7 +68,16 @@
       <!--<fileset dir="${lib.dir}/" includes="*.properties"/>-->
     </jar>
   </target>
-
+ 
+	<target name="client_jar" depends="compile">
+    <jar destfile="${jar.dir}/${client-jar-name}" basedir="${classes.dir}"
+      excludes="**/server/*" index="true">
+      <manifest>
+        <attribute name="Built-By" value="${user.name}"/>
+      </manifest>
+    </jar>
+	</target>
+	
   <target name="test" depends="jar">
     <mkdir dir="${report.dir}" />
     <junit>
@@ -109,12 +119,13 @@
 
   <target name="clean-build" depends="clean,jar"/>
 
-  <target name="build-dist" depends="jar,javadoc">
+  <target name="build-dist" depends="jar,client_jar,javadoc">
     <mkdir dir="${dist.dir}" />
 
     <!-- X-Trace library -->
     <copy file="${jar.dir}/${jar-name}" todir="${dist.dir}/lib" />
-
+  	<copy file="${jar.dir}/${client-jar-name}" todir="${dist.dir}/lib" />
+  	    
   	<!-- log4j configuration files -->
     <copy file="${lib.dir}/log4j-server.properties" todir="${dist.dir}/lib" />
     <copy file="${lib.dir}/log4j-proxy.properties" todir="${dist.dir}/lib" />

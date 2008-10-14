@@ -70,6 +70,7 @@
   </target>
  
 	<target name="client_jar" depends="compile">
+    <mkdir dir="${jar.dir}"/>
     <jar destfile="${jar.dir}/${client-jar-name}" basedir="${classes.dir}"
       excludes="**/server/*" index="true">
       <manifest>

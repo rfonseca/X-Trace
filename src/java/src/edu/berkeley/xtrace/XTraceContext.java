@@ -72,7 +72,7 @@ public class XTraceContext {
 	/** Cached hostname of the current machine. **/
 	private static String hostname = null;
 
-	private static int defaultOpIdLength = 8;
+	static int defaultOpIdLength = 8;
 	
 	/**
 	 * Set the X-Trace context for the current thread, to link it causally to

@@ -1,0 +1,19 @@
+require 'rubygems'
+require 'rake/gempackagetask.rb'
+
+spec = Gem::Specification.new do |s| 
+  s.name = "xtrace"
+  s.version = "0.0.1"
+  s.author = "Beth Trushkowsky"
+  s.email = "trush@eecs.berkeley.edu"
+  s.homepage = "http://cs.berkeley.edu/~trush/"
+  s.platform = Gem::Platform::RUBY
+  s.summary = "Ruby implementation of XTrace (www.x-trace.net)"
+  s.files = FileList["{lib}/**/*"].to_a
+  s.require_path = "lib"
+  s.has_rdoc = false
+end
+ 
+Rake::GemPackageTask.new(spec) do |pkg| 
+  pkg.need_tar = true 
+end

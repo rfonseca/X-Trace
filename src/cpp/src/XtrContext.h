@@ -27,6 +27,7 @@
 
 #include "XtrMetadata.h"
 #include "XtrEvent.h"
+#include <pthread.h>
 #include <unistd.h>
 #include <memory>
 
@@ -75,6 +76,7 @@ namespace xtr {
 	
 class Context {
 public:
+
     /** Get the current context metadata */
     static const Metadata& getContext ();
 
@@ -138,12 +140,16 @@ public:
      *  capturing concurrency, and is experimental. */
     static void forkContext ();
 private:
-    static TLS Metadata xtr_context;    
 
+    static void ensureKey();
     static bool is_host_set;
     static char host_name[MAXHOSTNAME+1];
     static void _set_host();
+public: // so it can be inited
+    static pthread_key_t context_key;
 };
+
 }; //namespace xtr
+
 
 #endif //_XTR_CONTEXT_H

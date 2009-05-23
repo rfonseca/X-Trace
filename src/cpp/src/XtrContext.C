@@ -27,37 +27,74 @@
 
 #include "XtrContext.h"
 #include <string.h>
+#include <exception>
 
 namespace xtr {
     
-Metadata Context::xtr_context;
 bool Context::is_host_set = 0;
 char Context::host_name[MAXHOSTNAME+1];
+pthread_key_t Context::context_key = 0;
+
+static pthread_once_t key_is_init = PTHREAD_ONCE_INIT;
+static pthread_mutex_t host_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void init_key() {
+  int rc = pthread_key_create(&(Context::context_key), NULL);
+  if (rc != 0)
+    perror("Couldn't create pthread context key");
+}
+
+void Context::
+ensureKey() {
+    (void) pthread_once(&key_is_init, init_key);  
+}
 
 const Metadata& 
 Context::getContext () 
 {
-    return xtr_context;
+    ensureKey();
+    Metadata *m = (Metadata*)pthread_getspecific(context_key);
+    if (m == NULL) {
+      m = new Metadata();
+      m->clear();
+      pthread_setspecific(context_key,m);
+    }
+    return *m;
 }
 
 
 void 
 Context::setContext (Metadata const& c)
 {
-    xtr_context = c;
+    ensureKey();
+    Metadata *m = (Metadata*)pthread_getspecific(context_key);
+    if (m == NULL) 
+      m = new Metadata();
+    *m = c;
+    pthread_setspecific(context_key,m);
 }
 
 
 void 
 Context::unsetContext ()
 {
-    xtr_context.clear();
+    ensureKey();
+    Metadata *m = (Metadata*)pthread_getspecific(context_key);
+    if (m == NULL) return;
+    m->clear();
 }    
 
 void 
 Context::forkContext ()
 {
-    xtr_context.newChainId();
+    ensureKey();
+    Metadata *m = (Metadata*)pthread_getspecific(context_key);
+    if (m == NULL) {
+      m = new Metadata();
+      m->clear();
+      pthread_setspecific(context_key,m);
+    }
+    m->newChainId();
 }
 
 void 
@@ -93,21 +130,28 @@ Context::createEvent( const char* agent, const char* label, u_int8_t severity)
 void 
 Context::setHost(const char* name) 
 {
+    pthread_mutex_lock(&host_mutex);
     strncpy(host_name, name, MAXHOSTNAME);
     host_name[MAXHOSTNAME] = '\0';
     is_host_set = true;
+    pthread_mutex_unlock(&host_mutex);
 }
 
 /* Private, tries to set the host automatically */
 void 
 Context::_set_host() 
 {
+    pthread_mutex_lock(&host_mutex);
     static bool tried = false;
-    if (tried)
+    if (tried) {
+        pthread_mutex_unlock(&host_mutex);
         return;
+    }
     tried = true;
-    if (is_host_set)
+    if (is_host_set) {
+        pthread_mutex_unlock(&host_mutex);
         return;
+    }
     memset(host_name, 0, sizeof(host_name));
     if (!(gethostname (host_name, MAXHOSTNAME)) &&
         strchr(host_name, '.')) {
@@ -116,6 +160,7 @@ Context::_set_host()
     else {
         host_name[0] = '.'; host_name[1] = '\0';
     } 
+    pthread_mutex_unlock(&host_mutex);
 }
 
 };//namespace xtr

@@ -33,7 +33,7 @@ env.Program(target = 'testRunner',
             source = ['testRunner.C'],
             CPPPATH = ['../build/include','.',],
             LIBPATH = '../build/lib',
-            LIBS = 'xtr-cpp' );
+            LIBS = ['xtr-cpp','pthread'] );
 
 env.Command('tests','testRunner','./testRunner');
 
@@ -50,5 +50,5 @@ testReportSpeed = env.Program(target = 'testReportSpeed',
                         source = ['TestReportSpeed.C'],
                         CPPPATH = ['../build/include','.',],
                         LIBPATH = '../build/lib',
-                        LIBS = 'xtr-cpp' );
+                        LIBS = ['xtr-cpp','pthread'] );
 

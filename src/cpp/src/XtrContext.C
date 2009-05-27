@@ -38,19 +38,24 @@ pthread_key_t Context::context_key = 0;
 static pthread_once_t key_is_init = PTHREAD_ONCE_INIT;
 static pthread_mutex_t host_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+void md_destroy(void* md) {
+    Metadata *m = (Metadata*)md;
+    delete m;
+}
+
 void init_key() {
-  int rc = pthread_key_create(&(Context::context_key), NULL);
-  if (rc != 0)
-    perror("Couldn't create pthread context key");
+    int rc = pthread_key_create(&(Context::context_key), &md_destroy);
+    if (rc != 0)
+      perror("Couldn't create pthread context key");
 }
 
 void Context::
 ensureKey() {
-    (void) pthread_once(&key_is_init, init_key);  
+    (void) pthread_once(&key_is_init, init_key);
 }
 
-const Metadata& 
-Context::getContext () 
+const Metadata&
+Context::getContext ()
 {
     ensureKey();
     Metadata *m = (Metadata*)pthread_getspecific(context_key);

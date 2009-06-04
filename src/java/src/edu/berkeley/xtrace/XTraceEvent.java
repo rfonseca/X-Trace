@@ -63,6 +63,7 @@ public class XTraceEvent {
 	
 	private Report report;
 	private byte[] myOpId;
+	private boolean willReport;
 
 	/**
 	 * Initialize a new XTraceEvent.  This should be done for each
@@ -73,11 +74,26 @@ public class XTraceEvent {
 		report = new Report();
 		myOpId = new byte[opIdLength];
 		random.get().nextBytes(myOpId);
+		willReport = true;
 	}
-	
+	/**
+	* If any edge added to this event has a higher severity than the threshold (default),
+	* this event will not be reported.
+	*/
 	public void addEdge(XTraceMetadata xtr) {
 		if (xtr == null || !xtr.isValid()) {
 			return;
+		}
+		// check for a severity level option field
+		OptionField[] options = xtr.getOptions();
+		if (options != null) {
+			for (int i=0; i <xtr.getNumOptions(); i++) {
+				if (options[i].getType()-OptionField.SEVERITY == 0) {
+					int severity = (int) options[i].getPayload()[0] & 0xFF;
+					willReport = severity < OptionSeverity.DEFAULT;
+					report.put("Severity", severity+"");
+				}
+			}
 		}
 		
 		XTraceMetadata newmd = new XTraceMetadata(xtr);
@@ -138,6 +154,7 @@ public class XTraceEvent {
 	
 	public void sendReport() {
 		setTimestamp();
+		if (!willReport) { return; }
 		Reporter.getReporter().sendReport(report);
 	}
 }

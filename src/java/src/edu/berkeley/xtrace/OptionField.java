@@ -41,6 +41,9 @@ import org.apache.log4j.Logger;
  * @author George Porter
  */
 public class OptionField {
+	public static final byte NOP = 0;
+	public static final byte SEVERITY = (byte)0xCE;
+
 	private static final Logger LOG = Logger.getLogger(OptionField.class);
 	
 	private final byte type;
@@ -95,8 +98,7 @@ public class OptionField {
 			LOG.warn("Length of Option payload cannot exceed 256 bytes");
 			return new OptionField();
 		}
-		
-		return new OptionField(bytes[offset], bytes, offset+2, length - offset - 2);
+		return new OptionField(bytes[offset-2], bytes, offset, length);
 	}
 	
 	public static OptionField createFromString(String s) {
@@ -130,7 +132,7 @@ public class OptionField {
 		
 		byte[] buf = new byte[payload.length + 2];
 		buf[0] = type;
-		buf[1] = (byte) (payload.length + 2);
+		buf[1] = (byte) (payload.length);
 		System.arraycopy(payload, 0, buf, 2, payload.length);
 		return buf;
 	}
@@ -176,3 +178,5 @@ public class OptionField {
 		return true;
 	}
 }
+
+

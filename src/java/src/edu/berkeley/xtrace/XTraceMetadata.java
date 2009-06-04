@@ -262,11 +262,9 @@ public final class XTraceMetadata {
 				o = new OptionField(type, null);
 			}
 			md.addOption(o);
-			
 			totOptLen -= (2 + len);
 			optPtr += (2 + len);
 		}
-		
 		return md;
 	}
 
@@ -418,6 +416,9 @@ public final class XTraceMetadata {
 			return null;
 		}
 	}
+	public int getNumOptions() {
+		return numOptions;
+	}
 
 	/**
 	 * Adds a new X-Trace option to this metadata object.
@@ -523,7 +524,26 @@ public final class XTraceMetadata {
 	public void setOpId(long newid) {
 		this.opId = ByteBuffer.allocate(8).putLong(newid).array();
 	}
-
+	/**
+	* Sets the severity via an option field
+	* creates new option field if one for severity doesn't already exist
+	* @param severity level to be stored in metadata
+	* (see xtrace specification for levels)
+	*/
+	public void setSeverity(int severity) {
+		byte type = OptionField.SEVERITY;
+		byte[] payload = { new Integer(severity).byteValue() };
+		if (numOptions > 0) { // use existing option field spot if it exists
+			for (int i=0; i <numOptions; i++) {
+				if (options[i].getType()-OptionField.SEVERITY == 0) {
+					options[i]=new OptionField(type, payload);
+				}
+			}
+		}
+		else { // create a new option field
+			addOption(new OptionField(type, payload));
+		}
+	}
 	/**
 	 * Returns the String representation of this X-Trace metadata, in the format
 	 * specified by the X-Trace spec.

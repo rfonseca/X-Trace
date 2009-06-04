@@ -328,6 +328,18 @@ public class XTraceContext {
 		event.sendReport();
 	}
 
+	public static void startTraceSeverity(String agent, String title, int severity, String... tags) {
+		TaskID taskId = new TaskID(8);
+		setThreadContext(new XTraceMetadata(taskId, 0L));
+		getThreadContext().setSeverity(severity);
+		XTraceEvent event = createEvent(agent, "Start Trace: " + title);
+		event.put("Title", title);
+		for (String tag: tags) {
+			event.put("Tag", tag);
+		}
+		event.sendReport();
+	}
+
 	public static int getDefaultOpIdLength() {
 		return defaultOpIdLength;
 	}

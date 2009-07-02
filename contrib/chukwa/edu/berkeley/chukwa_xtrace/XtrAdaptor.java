@@ -1,3 +1,12 @@
+/*
+ * Written by Ari Rabkin, UC Berkeley.
+ * All rights reserved, distribution outside UC Berkeley or collaborating
+ * institutions prohibited without authorization.
+ * 
+ * This notice is a placeholder until I figure out how to really release code.
+ * Probably will ultimately become a chukwa contrib, and hence apache license.
+ * 
+ */
 package edu.berkeley.chukwa_xtrace;
 
 import org.apache.hadoop.chukwa.*;
@@ -10,6 +19,13 @@ import edu.berkeley.xtrace.server.*;
 import edu.berkeley.xtrace.XTraceException;
 import java.util.concurrent.*;
 
+/**
+ * Adaptor that wraps an xtrace report source, so that xtrace messages
+ * can get picked up by the chukwa agent.
+ * Takes one mandatory param, the class name of the report source,
+ * implicitly inside package edu.berkeley.xtrace.server
+ * 
+ */
 public class XtrAdaptor extends AbstractAdaptor implements Runnable {
   
   ReportSource rs;

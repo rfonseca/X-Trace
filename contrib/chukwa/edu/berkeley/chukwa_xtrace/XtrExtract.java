@@ -16,6 +16,9 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.ArrayWritable;
+import org.apache.hadoop.io.Text;
 
 import edu.berkeley.chukwajobs.MRExtractChunks;
 import edu.berkeley.xtrace.reporting.Report;
@@ -36,43 +39,50 @@ public class XtrExtract extends Configured implements Tool {
    * instead of in-memory topological sort.
    */
   static final int MAX_IN_MEMORY_REPORTS = 10* 1000;
+  
 
-  public class MapClass extends Mapper <ChukwaRecordKey, ChukwaRecord, byte[], Report> {
+  public static class MapClass extends Mapper <ChukwaRecordKey, ChukwaRecord, BytesWritable, Text> {
+    
+    public MapClass() {
+      System.out.println("starting map");
+    }
     
     protected void map(ChukwaRecordKey key, ChukwaRecord value, 
-        Mapper<ChukwaRecordKey, ChukwaRecord, byte[], Report>.Context context)
+        Mapper<ChukwaRecordKey, ChukwaRecord,BytesWritable, Text>.Context context)
         throws IOException, InterruptedException 
     {
       Report xtrReport = Report.createFromString(value.getValue(Record.bodyField));
-      context.write(xtrReport.getMetadata().getTaskId().get(), xtrReport);
+      BytesWritable bw = new BytesWritable(xtrReport.getMetadata().getTaskId().get());
+      Text t= new Text(value.getValue(Record.bodyField));
+      context.write(bw, t);
     }
   }
   
-  public class Reduce extends Reducer<byte[], Report,byte[],List<Report>> {
+  public static class Reduce extends Reducer<BytesWritable, Text,BytesWritable,ArrayWritable> {
     
-    protected  void   reduce(byte[] taskID, Iterable<Report> values, 
-          Reducer<byte[], Report,byte[],List<Report>>.Context context) 
+    public Reduce() {}
+    
+    protected  void   reduce(BytesWritable taskID, Iterable<Text> values, 
+          Reducer<BytesWritable, Text,BytesWritable,ArrayWritable>.Context context) 
           throws IOException, InterruptedException
     {
-      HashMap<String, Report> reports = new HashMap<String, Report>();
-      HashMap<String, Integer> counts = new LinkedHashMap<String, Integer>();
+      
+      //in both cases, key is OpId string
+      HashMap<String, Report> reports = new LinkedHashMap<String, Report>();
+      HashMap<String, Integer> counts = new HashMap<String, Integer>();
+      Queue<Report> zeroInlinkReports = new LinkedList<Report>();
 
       Counter reportCounter = context.getCounter("app", "reports");
+      int edgeCount = 0;
       
       int numReports = 0;
-      for(Report r: values) {
+      for(Text rep_text: values) {
+        Report r = Report.createFromString(rep_text.toString());
         reportCounter.increment(1);
         numReports++;
-
+        
         if(numReports < MAX_IN_MEMORY_REPORTS) {
           reports.put(r.getMetadata().getOpIdString(), r);
-          //increment link counts for children
-          for(String outLink: r.get("Edge")) {
-            Integer oldCount = counts.get(outLink);
-            if(oldCount == null)
-              oldCount = 0;
-            counts.put(outLink, oldCount +1);
-          }
         } else if(numReports == MAX_IN_MEMORY_REPORTS) {
           //bail out, prepare to do an external sort.
           return;
@@ -81,42 +91,67 @@ public class XtrExtract extends Configured implements Tool {
     //      do the external sort
       }
       
+
+      //increment link counts for children
+      for(Report r: reports.values()){ 
+        String myOpID = r.getMetadata().getOpIdString();
+        int parentCount = 0;
+        for(String inLink: r.get("Edge")) {
+          Report parent = reports.get(inLink);
+          if(parent != null) {
+            parent.put("__xtr_outlinks", myOpID);
+            parentCount++;
+          }
+          else
+            System.out.println("no sign of parent: " + inLink);
+          edgeCount++;
+        }
+
+        if(parentCount == 0)
+          zeroInlinkReports.add(r);
+        else
+          counts.put(myOpID, parentCount);
+      }
       
-      List<Report> finalOutput = new ArrayList<Report>(reports.size());
-      for(Report r: reports.values())
-        finalOutput.add(r);
+      System.out.println(edgeCount + " total edges");
       
-      
-      /*
       //at this point, we have a map from metadata to report, and also
       //from report op ID to inlink count.
       //next step is to do a topological sort.
 
-      Queue<Report> zeroInlinkReports = new LinkedList<Report>();
       
-        //first pass: find entries with no inlinks
-      for(java.util.Map.Entry<String, Integer> count : counts.entrySet()) {
-        if(count.getValue() == 0) {
-          Report r = reports.get(count.getKey());
-          zeroInlinkReports.add(r);
-        }
-      }
-      List<Report> finalOutput = new ArrayList<Report>(reports.size());
+      Text[] finalOutput = new Text[reports.size()];
+      System.out.println("expecting to sort " + finalOutput.length + " reports");
+      int i=0;
       while(!zeroInlinkReports.isEmpty()) {
         Report r = zeroInlinkReports.poll();
-        assert r != null: "apparently your graph is cyclic";
-        for(String outLink: r.get("Edge")) {
-          Integer oldCount = counts.get(outLink);
-          if(oldCount == null)
-            oldCount = 0;
-          if(oldCount == 1)
-            zeroInlinkReports.add(reports.get(outLink));
-          counts.put(outLink, oldCount -1);
+        if(r == null) {
+          System.err.println("poll returned null but list not empty");
+          break;
         }
-        
-      }*/
+        finalOutput[i++] = new Text(r.toString());
+        List<String> outLinks =  r.get("__xtr_outlinks");
+        if(outLinks != null) {
+          for(String outLink: outLinks) {
+            Integer oldCount = counts.get(outLink);
+            if(oldCount == null) {
+              oldCount = 0;  //FIXME: can this happen?
+              System.out.println("warning: found an in-edge where none was expected");
+            } if(oldCount == 1) {
+              zeroInlinkReports.add(reports.get(outLink));
+              System.out.println("outputting report: " + outLink);
+            }
+            counts.put(outLink, oldCount -1);
+          }
+        }
+      }
+      if(i != finalOutput.length ) {
+        System.out.println("error: I only sorted " + i + " items, but expected " + 
+            finalOutput.length+", is your list cyclic?");
+       
+      }
 
-      context.write(taskID, finalOutput);
+      context.write(taskID, new ArrayWritable(Text.class, finalOutput));
       //Should sort values topologically and output list.  or?
       
     } //end reduce
@@ -128,13 +163,22 @@ public class XtrExtract extends Configured implements Tool {
     Job extractor = new Job(getConf());
     extractor.setMapperClass(MapClass.class);
     extractor.setReducerClass(Reduce.class);
-    extractor.setJobName("x-trace reconstructor-nosort");
+    extractor.setJobName("x-trace reconstructor");
+    extractor.setJarByClass(this.getClass());
+    
+    extractor.setMapOutputKeyClass(BytesWritable.class);
+    extractor.setMapOutputValueClass(Text.class);
+    
+    extractor.setOutputKeyClass(BytesWritable.class);
+    extractor.setOutputValueClass(ArrayWritable.class);
+    
     extractor.setInputFormatClass(SequenceFileInputFormat.class);
     extractor.setOutputFormatClass(SequenceFileOutputFormat.class);
     FileInputFormat.setInputPaths(extractor, new Path(arg[0]));
     FileOutputFormat.setOutputPath(extractor, new Path(arg[1]));
     System.out.println("looks OK.  Submitting.");
-    extractor.waitForCompletion(false);
+    extractor.submit();
+//    extractor.waitForCompletion(false);
     return 0;
 
   }

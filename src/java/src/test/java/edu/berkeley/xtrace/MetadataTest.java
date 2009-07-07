@@ -451,8 +451,7 @@ public class MetadataTest {
 	 * Test method for {@link edu.berkeley.xtrace.XTraceMetadata#getOptions()}
 	 * and {@link edu.berkeley.xtrace.XTraceMetadata#addOption(edu.berkeley.xtrace.OptionField)}
 	 */
-	@Test
-	public void testOptions() {
+	public void TODOtestOptions() {
 		
 		// Are these string comparison tests valid?  I don't think
 		// the spec requires options to appear in the serialized

@@ -62,6 +62,12 @@ public class XtrExtract extends Configured implements Tool {
     
     public Reduce() {}
     
+    /**
+     * 
+     * Note that loading everything into hashtables means
+     * we implicity suppress duplicate-but-identical reports.  
+     * 
+     */
     protected  void   reduce(BytesWritable taskID, Iterable<Text> values, 
           Reducer<BytesWritable, Text,BytesWritable,ArrayWritable>.Context context) 
           throws IOException, InterruptedException
@@ -78,7 +84,6 @@ public class XtrExtract extends Configured implements Tool {
       int numReports = 0;
       for(Text rep_text: values) {
         Report r = Report.createFromString(rep_text.toString());
-        reportCounter.increment(1);
         numReports++;
         
         if(numReports < MAX_IN_MEMORY_REPORTS) {
@@ -90,8 +95,11 @@ public class XtrExtract extends Configured implements Tool {
           ;
     //      do the external sort
       }
-      
 
+      reportCounter.increment(reports.size());
+      //FIXME: could usefully compare reports.size() with numReports;
+      //that would measure duplicate reports
+      
       //increment link counts for children
       for(Report r: reports.values()){ 
         String myOpID = r.getMetadata().getOpIdString();
@@ -139,16 +147,18 @@ public class XtrExtract extends Configured implements Tool {
               System.out.println("warning: found an in-edge where none was expected");
             } if(oldCount == 1) {
               zeroInlinkReports.add(reports.get(outLink));
-              System.out.println("outputting report: " + outLink);
             }
             counts.put(outLink, oldCount -1);
           }
         }
       }
-      if(i != finalOutput.length ) {
-        System.out.println("error: I only sorted " + i + " items, but expected " + 
-            finalOutput.length+", is your list cyclic?");
-       
+      if(i != finalOutput.length) {
+        if(i > 0)
+           System.out.println("error: I only sorted " + i + " items, but expected " 
+            + finalOutput.length+", is your list cyclic?");
+        else
+          System.out.println("every event in graph has a predecessor; perhaps "
+              + "the start event isn't in the input set?");
       }
 
       context.write(taskID, new ArrayWritable(Text.class, finalOutput));

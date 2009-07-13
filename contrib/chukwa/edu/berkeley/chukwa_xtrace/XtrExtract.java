@@ -1,5 +1,7 @@
 package edu.berkeley.chukwa_xtrace;
 
+import org.apache.hadoop.chukwa.ChunkImpl;
+import org.apache.hadoop.chukwa.ChukwaArchiveKey;
 import org.apache.hadoop.chukwa.extraction.demux.processor.mapper.AbstractProcessor;
 import org.apache.hadoop.chukwa.extraction.engine.ChukwaRecord;
 import org.apache.hadoop.chukwa.extraction.engine.ChukwaRecordKey;
@@ -34,30 +36,49 @@ import edu.berkeley.xtrace.*;
  */
 public class XtrExtract extends Configured implements Tool {
   
+  public static final String OUTLINK_FIELD = "__xtr_outlinks";
+  
   /**
    * with more than 10,000 reports, switch to on-disk sort, 
    * instead of in-memory topological sort.
    */
   static final int MAX_IN_MEMORY_REPORTS = 10* 1000;
   
-
-  public static class MapClass extends Mapper <ChukwaRecordKey, ChukwaRecord, BytesWritable, Text> {
+public static class MapClass extends Mapper <Object, Object, BytesWritable, Text> {
     
     public MapClass() {
-      System.out.println("starting map");
+      System.out.println("starting xtrace map");
     }
     
-    protected void map(ChukwaRecordKey key, ChukwaRecord value, 
-        Mapper<ChukwaRecordKey, ChukwaRecord,BytesWritable, Text>.Context context)
+    @Override
+    protected void map(Object k, Object v, 
+        Mapper<Object, Object,BytesWritable, Text>.Context context)
         throws IOException, InterruptedException 
     {
-      Report xtrReport = Report.createFromString(value.getValue(Record.bodyField));
-      BytesWritable bw = new BytesWritable(xtrReport.getMetadata().getTaskId().get());
-      Text t= new Text(value.getValue(Record.bodyField));
+      Text t;
+      BytesWritable bw;
+      
+      if(k instanceof ChukwaArchiveKey && v instanceof ChunkImpl) {
+        ChunkImpl value = (ChunkImpl) v;
+        Report xtrReport = Report.createFromString(new String(value.getData()));
+        bw = new BytesWritable(xtrReport.getMetadata().getTaskId().get());
+        //FIXME: can probably optimize the above lines by doing a search in the raw bytes
+        t= new Text(value.getData());
+      } else if(k instanceof ChukwaRecordKey && v instanceof ChukwaRecord){
+        ChukwaRecord value = (ChukwaRecord) v;
+        Report xtrReport = Report.createFromString(value.getValue(Record.bodyField));
+        bw = new BytesWritable(xtrReport.getMetadata().getTaskId().get());
+        //FIXME: can probably optimize the above lines by doing a search in the raw bytes
+        t= new Text(value.getValue(Record.bodyField));
+      } else {
+        System.out.println("unexpected key/value types: "+ k.getClass().getCanonicalName() 
+            + " and " + v.getClass().getCanonicalName() );
+        return;
+      }
       context.write(bw, t);
     }
   }
-  
+
   public static class Reduce extends Reducer<BytesWritable, Text,BytesWritable,ArrayWritable> {
     
     public Reduce() {}
@@ -68,15 +89,13 @@ public class XtrExtract extends Configured implements Tool {
      * we implicity suppress duplicate-but-identical reports.  
      * 
      */
-    protected  void   reduce(BytesWritable taskID, Iterable<Text> values, 
+    protected  void reduce(BytesWritable taskID, Iterable<Text> values, 
           Reducer<BytesWritable, Text,BytesWritable,ArrayWritable>.Context context) 
           throws IOException, InterruptedException
     {
       
       //in both cases, key is OpId string
       HashMap<String, Report> reports = new LinkedHashMap<String, Report>();
-      HashMap<String, Integer> counts = new HashMap<String, Integer>();
-      Queue<Report> zeroInlinkReports = new LinkedList<Report>();
 
       Counter reportCounter = context.getCounter("app", "reports");
       int edgeCount = 0;
@@ -96,6 +115,8 @@ public class XtrExtract extends Configured implements Tool {
     //      do the external sort
       }
 
+      HashMap<String, Integer> counts = new HashMap<String, Integer>();
+      Queue<Report> zeroInlinkReports = new LinkedList<Report>();
       reportCounter.increment(reports.size());
       //FIXME: could usefully compare reports.size() with numReports;
       //that would measure duplicate reports
@@ -107,7 +128,7 @@ public class XtrExtract extends Configured implements Tool {
         for(String inLink: r.get("Edge")) {
           Report parent = reports.get(inLink);
           if(parent != null) {
-            parent.put("__xtr_outlinks", myOpID);
+            parent.put(OUTLINK_FIELD, myOpID);
             parentCount++;
           }
           else
@@ -138,7 +159,7 @@ public class XtrExtract extends Configured implements Tool {
           break;
         }
         finalOutput[i++] = new Text(r.toString());
-        List<String> outLinks =  r.get("__xtr_outlinks");
+        List<String> outLinks =  r.get(OUTLINK_FIELD);
         if(outLinks != null) {
           for(String outLink: outLinks) {
             Integer oldCount = counts.get(outLink);
@@ -168,10 +189,14 @@ public class XtrExtract extends Configured implements Tool {
     
   }//end reduce class
 
+
   @Override
   public int run(String[] arg) throws Exception {
     Job extractor = new Job(getConf());
+    
+
     extractor.setMapperClass(MapClass.class);
+    
     extractor.setReducerClass(Reduce.class);
     extractor.setJobName("x-trace reconstructor");
     extractor.setJarByClass(this.getClass());

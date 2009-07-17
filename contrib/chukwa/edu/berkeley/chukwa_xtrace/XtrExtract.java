@@ -22,7 +22,6 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.io.Text;
 
-import edu.berkeley.chukwajobs.MRExtractChunks;
 import edu.berkeley.xtrace.reporting.Report;
 import edu.berkeley.xtrace.*;
 
@@ -93,11 +92,13 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
           Reducer<BytesWritable, Text,BytesWritable,ArrayWritable>.Context context) 
           throws IOException, InterruptedException
     {
-      
+      String taskIDString = new String(taskID.getBytes());
       //in both cases, key is OpId string
       HashMap<String, Report> reports = new LinkedHashMap<String, Report>();
 
       Counter reportCounter = context.getCounter("app", "reports");
+      Counter edgeCounter = context.getCounter("app", "edges");
+      Counter badEdgeCounter = context.getCounter("app", "reference to missing report");
       int edgeCount = 0;
       
       int numReports = 0;
@@ -126,31 +127,42 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
         String myOpID = r.getMetadata().getOpIdString();
         int parentCount = 0;
         for(String inLink: r.get("Edge")) {
+          
+            //sanitize data from old, nonconformant C++ implementation
+          if(inLink.contains(","))
+            inLink = inLink.substring(0, inLink.indexOf(','));
+          
           Report parent = reports.get(inLink);
           if(parent != null) {
             parent.put(OUTLINK_FIELD, myOpID);
             parentCount++;
+            edgeCount++;
           }
-          else
-            System.out.println("no sign of parent: " + inLink);
-          edgeCount++;
+          else { //no match
+            if(!inLink.equals("0000000000000000"))  {
+              System.out.println("no sign of parent: " + inLink);
+              badEdgeCounter.increment(1);
+            }
+            //else quietly suppress
+          }
         }
-
+          
+        //if there weren't any parents, we can dequeue
         if(parentCount == 0)
           zeroInlinkReports.add(r);
         else
           counts.put(myOpID, parentCount);
       }
       
-      System.out.println(edgeCount + " total edges");
-      
+      System.out.println(taskIDString+": " + edgeCount + " total edges");
+      edgeCounter.increment(edgeCount);
       //at this point, we have a map from metadata to report, and also
       //from report op ID to inlink count.
       //next step is to do a topological sort.
 
       
       Text[] finalOutput = new Text[reports.size()];
-      System.out.println("expecting to sort " + finalOutput.length + " reports");
+      System.out.println(taskIDString+": expecting to sort " + finalOutput.length + " reports");
       int i=0;
       while(!zeroInlinkReports.isEmpty()) {
         Report r = zeroInlinkReports.poll();

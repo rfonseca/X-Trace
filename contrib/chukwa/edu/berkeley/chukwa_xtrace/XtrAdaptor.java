@@ -28,6 +28,7 @@ import java.util.concurrent.*;
  */
 public class XtrAdaptor extends AbstractAdaptor implements Runnable {
   
+  
   ReportSource rs;
   Thread pump = new Thread(this);
   Thread reportSourceThread;
@@ -35,7 +36,6 @@ public class XtrAdaptor extends AbstractAdaptor implements Runnable {
   volatile boolean stopping = false;
   long offset = 0;
   static Logger log = Logger.getLogger(XtrAdaptor.class);
-  
   
   static final String XTR_RS_PACKAGE = "edu.berkeley.xtrace.server.";
   /**

@@ -8,6 +8,11 @@ import org.apache.hadoop.chukwa.ChunkImpl;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.SequenceFile;
 
+/**
+ * Takes existing text files containing xtrace reports, and
+ * outputs a chukwa-format sequence file with those reports.
+ * 
+ */
 public class XtrLoader {
 
   /**
@@ -23,6 +28,8 @@ public class XtrLoader {
       Configuration conf = new Configuration();
       FileSystem fileSys = FileSystem.getLocal(conf);
       Calendar calendar = Calendar.getInstance();
+
+      //set archive time to "now".
       FSDataOutputStream out = fileSys.create(new Path(args[0]));
   
       SequenceFile.Writer seqFileWriter = SequenceFile.createWriter(conf, out,
@@ -33,13 +40,6 @@ public class XtrLoader {
       while((chunk= getNextChunkFromStdin(stdin)) != null) {
         ChukwaArchiveKey archiveKey = new ChukwaArchiveKey();
     
-        calendar.set(Calendar.YEAR, 2008);
-        calendar.set(Calendar.MONTH, Calendar.MAY);
-        calendar.set(Calendar.DAY_OF_MONTH, 29);
-        calendar.set(Calendar.HOUR, 10);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
         archiveKey.setTimePartition(calendar.getTimeInMillis());
         archiveKey.setDataType(chunk.getDataType());
         archiveKey.setStreamName(chunk.getStreamName());
@@ -79,7 +79,7 @@ public class XtrLoader {
     String lines = sb.toString();
     
     ChunkImpl c = new ChunkImpl("XTrace", "XtrLoader",
-        lines.length() - 1L + lastSeqID, lines.getBytes(), null);
+        lines.length()+ lastSeqID, lines.getBytes(), null);
     lastSeqID += lines.length();
     c.addTag("cluster=\"beth_xtrace\"");
     

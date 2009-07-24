@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.berkeley.chukwa_xtrace;
 
 import org.apache.hadoop.chukwa.ChunkImpl;
@@ -21,6 +38,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.ArrayWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.log4j.Logger;
 
 import edu.berkeley.xtrace.reporting.Report;
 import edu.berkeley.xtrace.*;
@@ -36,12 +54,13 @@ import edu.berkeley.xtrace.*;
 public class XtrExtract extends Configured implements Tool {
   
   public static final String OUTLINK_FIELD = "__xtr_outlinks";
+  static Logger log = Logger.getLogger(XtrExtract.class);
   
   /**
-   * with more than 10,000 reports, switch to on-disk sort, 
+   * with more than 50,000 reports in a single trace, switch to on-disk sort, 
    * instead of in-memory topological sort.
    */
-  static final int MAX_IN_MEMORY_REPORTS = 10* 1000;
+  static final int MAX_IN_MEMORY_REPORTS = 50* 1000;
   
 public static class MapClass extends Mapper <Object, Object, BytesWritable, Text> {
     
@@ -70,7 +89,7 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
         //FIXME: can probably optimize the above lines by doing a search in the raw bytes
         t= new Text(value.getValue(Record.bodyField));
       } else {
-        System.out.println("unexpected key/value types: "+ k.getClass().getCanonicalName() 
+        log.error("unexpected key/value types: "+ k.getClass().getCanonicalName() 
             + " and " + v.getClass().getCanonicalName() );
         return;
       }
@@ -92,21 +111,24 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
           Reducer<BytesWritable, Text,BytesWritable,ArrayWritable>.Context context) 
           throws IOException, InterruptedException
     {
-      String taskIDString = new String(taskID.getBytes());
+      String taskIDString = IoUtil.bytesToString(taskID.getBytes());
       //in both cases, key is OpId string
       HashMap<String, Report> reports = new LinkedHashMap<String, Report>();
 
-      Counter reportCounter = context.getCounter("app", "reports");
+      Counter reportCounter = context.getCounter("app", "distinct reports");
       Counter edgeCounter = context.getCounter("app", "edges");
       Counter badEdgeCounter = context.getCounter("app", "reference to missing report");
-      int edgeCount = 0;
+      Counter dupCounter = context.getCounter("app", "duplicate report");
+
+      int edgeCount = 0, dups = 0, numReports = 0;
       
-      int numReports = 0;
       for(Text rep_text: values) {
         Report r = Report.createFromString(rep_text.toString());
         numReports++;
         
         if(numReports < MAX_IN_MEMORY_REPORTS) {
+          if(reports.containsKey(r.getMetadata().getOpIdString()))
+            dups++;
           reports.put(r.getMetadata().getOpIdString(), r);
         } else if(numReports == MAX_IN_MEMORY_REPORTS) {
           //bail out, prepare to do an external sort.
@@ -119,6 +141,7 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
       HashMap<String, Integer> counts = new HashMap<String, Integer>();
       Queue<Report> zeroInlinkReports = new LinkedList<Report>();
       reportCounter.increment(reports.size());
+      dupCounter.increment(dups);
       //FIXME: could usefully compare reports.size() with numReports;
       //that would measure duplicate reports
       
@@ -140,7 +163,7 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
           }
           else { //no match
             if(!inLink.equals("0000000000000000"))  {
-              System.out.println("no sign of parent: " + inLink);
+              log.info("no sign of parent: " + inLink);
               badEdgeCounter.increment(1);
             }
             //else quietly suppress
@@ -154,7 +177,7 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
           counts.put(myOpID, parentCount);
       }
       
-      System.out.println(taskIDString+": " + edgeCount + " total edges");
+      log.debug(taskIDString+": " + edgeCount + " total edges");
       edgeCounter.increment(edgeCount);
       //at this point, we have a map from metadata to report, and also
       //from report op ID to inlink count.
@@ -162,12 +185,13 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
 
       
       Text[] finalOutput = new Text[reports.size()];
-      System.out.println(taskIDString+": expecting to sort " + finalOutput.length + " reports");
+      log.debug(taskIDString+": expecting to sort " + finalOutput.length + " reports");
       int i=0;
       while(!zeroInlinkReports.isEmpty()) {
         Report r = zeroInlinkReports.poll();
         if(r == null) {
-          System.err.println("poll returned null but list not empty");
+          log.warn(taskIDString+": poll returned null but list not empty. This is probably a bug" 
+          		+ " fairly deep down");
           break;
         }
         finalOutput[i++] = new Text(r.toString());
@@ -177,7 +201,7 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
             Integer oldCount = counts.get(outLink);
             if(oldCount == null) {
               oldCount = 0;  //FIXME: can this happen?
-              System.out.println("warning: found an in-edge where none was expected");
+              log.warn(taskIDString+": found an in-edge where none was expected");
             } if(oldCount == 1) {
               zeroInlinkReports.add(reports.get(outLink));
             }
@@ -187,10 +211,10 @@ public static class MapClass extends Mapper <Object, Object, BytesWritable, Text
       }
       if(i != finalOutput.length) {
         if(i > 0)
-           System.out.println("error: I only sorted " + i + " items, but expected " 
+           log.warn(taskIDString+": I only sorted " + i + " items, but expected " 
             + finalOutput.length+", is your list cyclic?");
         else
-          System.out.println("every event in graph has a predecessor; perhaps "
+          log.warn(taskIDString+": every event in graph has a predecessor; perhaps "
               + "the start event isn't in the input set?");
       }
 

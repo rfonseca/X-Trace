@@ -45,9 +45,11 @@ import edu.berkeley.xtrace.reporting.Report;
  * Input is a sequence file, with task ID as byteswritable for key
  * and an ArrayWritable of Texts for value; one Report per Text.
  * 
- *  Output is a bytesWritable for key [task ID]
+ *  Map output is a bytesWritable for key [task ID]
  *  and a an ArrayWritable of Texts for value.
  *  Each text is the distribution for a single start/stop pair
+ *
+ * 
  *
  */
 public class XtrIndex extends Configured implements Tool {

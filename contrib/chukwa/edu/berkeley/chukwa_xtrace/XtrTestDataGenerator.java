@@ -9,6 +9,13 @@ import org.apache.hadoop.chukwa.datacollection.connector.http.HttpConnector;
 import org.apache.hadoop.conf.Configuration;
 import edu.berkeley.xtrace.XTraceContext;
 
+/**
+ * Outputs a sequence of xtrace reports, sending them to a chukwa collector.
+ * 
+ * This mostly exists to provide minimal input data to test the indexer and
+ * report extractor jobs.
+ *
+ */
 public class XtrTestDataGenerator {
   ChukwaAgent agent;
   public XtrTestDataGenerator(String collectorUrl) throws ChukwaAgent.AlreadyRunningException, IOException {
@@ -35,7 +42,6 @@ public class XtrTestDataGenerator {
         System.exit(0);
       }
       XtrTestDataGenerator g = new XtrTestDataGenerator(args[0]);
-      
       
       XTraceContext.startTrace("test", "testtrace", "atag");
       for(int i =1; i < 10; ++i)

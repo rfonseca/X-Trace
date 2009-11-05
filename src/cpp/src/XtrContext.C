@@ -26,6 +26,7 @@
 */
 
 #include "XtrContext.h"
+#include <cstdio>
 #include <string.h>
 #include <exception>
 

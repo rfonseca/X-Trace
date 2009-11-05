@@ -4,30 +4,26 @@
 
 import os.path
 
+#env = Environment(CCFLAGS = [ '-O3', '-Wall', '-fPIC'])
+env = Environment(CCFLAGS = [ '-g', '-Wall', '-fPIC'])
 
-#env = Environment(CCFLAGS= [ '-O3', '-Wall', '-fPIC'])
-env = Environment(CCFLAGS= [ '-g', '-Wall', '-fPIC'])
+headers = [ 'Xtr.h'
+          , 'XtrMetadata.h'
+          , 'XtrOption.h'
+          , 'XtrConstants.h'
+          , 'XtrEvent.h'
+          , 'XtrReporter.h'
+          , 'XtrContext.h' ]
 
-headers = ['Xtr.h','XtrMetadata.h',
-           'XtrOption.h','XtrConstants.h',
-           'XtrEvent.h','XtrReporter.h',
-           'XtrContext.h']
+code = [ 'XtrMetadata.C'
+       , 'XtrOption.C'
+       , 'XtrReporter.C'
+       , 'XtrEvent.C'
+       , 'XtrContext.C' ]
 
-code    = ['XtrMetadata.C', 'XtrOption.C','XtrReporter.C','XtrEvent.C','XtrContext.C']
-
-lib_CPP = env.Library(target = 'xtr-cpp',
-                     source = code)
-
-env.Install('../build/lib', lib_CPP);
-env.Install('../build/include',headers);
-
-env.Command('testRunner.C', 
-            code +   headers + ['TestXtr.C'],
-            'cxxtest/cxxtestgen.pl --error-printer -o testRunner.C TestXtr.C');
-
-doc_c = env.Command('../doc/html/index.html', 
-             code + headers + ['Doxyfile'],
-            'doxygen');
+#---------
+# Testing
+#---------
 
 env.Program(target = 'testRunner', 
             source = ['testRunner.C'],
@@ -35,20 +31,47 @@ env.Program(target = 'testRunner',
             LIBPATH = '../build/lib',
             LIBS = ['xtr-cpp','pthread'] );
 
-env.Command('tests','testRunner','./testRunner');
+env.Program(target = 'testReport',
+       source = ['TestReport.C'],
+       CPPPATH = ['../build/include','.',],
+       LIBPATH = '../build/lib',
+       LIBS = 'xtr-cpp' );
 
-env.Alias('install-headers','../build/include');
-env.Alias('doc',doc_c)
-env.Default(['install-headers','.'])
+env.Program(target = 'testReportSpeed',
+       source = ['TestReportSpeed.C'],
+       CPPPATH = ['../build/include','.',],
+       LIBPATH = '../build/lib',
+       LIBS = ['xtr-cpp','pthread'] );
 
-testReport = env.Program(target = 'testReport',
-                        source = ['TestReport.C'],
-                        CPPPATH = ['../build/include','.',],
-                        LIBPATH = '../build/lib',
-                        LIBS = 'xtr-cpp' );
-testReportSpeed = env.Program(target = 'testReportSpeed',
-                        source = ['TestReportSpeed.C'],
-                        CPPPATH = ['../build/include','.',],
-                        LIBPATH = '../build/lib',
-                        LIBS = ['xtr-cpp','pthread'] );
+env.Command('testRunner.C', 
+            code +   headers + ['TestXtr.C'],
+            'cxxtest/cxxtestgen.pl --error-printer -o testRunner.C TestXtr.C');
+
+env.Command('tests', 'testRunner' , './testRunner');
+
+#---------------
+# Documentation
+#---------------
+
+doc_c = env.Command('../doc/html/index.html', 
+             code + headers + ['Doxyfile'],
+            'doxygen');
+
+#---------
+# Aliases
+#---------
+
+env.Alias('doc', doc_c)
+env.Alias('install-headers', '../build/include');
+
+#----------
+# Building 
+#----------
+
+lib_cpp = env.Library('xtr-cpp', code)
+
+env.Install('../build/lib', lib_cpp);
+env.Install('../build/include', headers);
+
+env.Default(['install-headers', '.'])
 

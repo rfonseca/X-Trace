@@ -1,10 +1,11 @@
 README file for the C++ implementation of the X-Trace core libraries.
 
-This directory contains implementations of the X-Trace Metadata representation, 
+This directory contains implementations of the X-Trace Metadata representation,
 and facilities for propagating and reporting.
 
 Requirements:
  - Python 1.5.2 or greater, for running the build tool, scons
+ - scons 
  - Doxygen to generate the documentation
 
 To build:
@@ -12,16 +13,16 @@ To build:
 
 In the src directory, type:
 
-$ python ../scons/scons.py
+$ scons 
 
 To clean up the generated files (similar to 'make clean'):
 ----------------------------------------------------------
 
-$ python ../scons/scons.py -c
+$ scons -c
 
 To build the documentation, 
 ---------------------------
 
-$ python ../scons/scons.py doc
+$ scons doc
 
 For more information, www.x-trace.net

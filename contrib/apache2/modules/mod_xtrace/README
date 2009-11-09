@@ -21,9 +21,16 @@ Add configuration parameters
 
 Compiling:
  - run ./autogen.sh to generate a Makefile.
- - linking is still wrong. Maybe I'll write my own makefile...
+ - Apache must be told to link against libstdc++. To do this, follow the
+   instructions on this page:
+     http://zach.chambana.net/apache-cplusplus/cplusplus/stdlib.html
 
 Changes:
+
+--------
+Nov 9 2009
+Fixed incorrect forward declaration of the xtrace module struct in
+mod_xtrace.cpp
 
 --------
 Nov 6 2009

@@ -23,8 +23,9 @@ using namespace xtr;
 
 /* Forward declaration. Tell g++ to be nice and mangle compatibly */
 #ifdef __cplusplus
-extern "C" module AP_MODULE_DECLARE_DATA test_module;
+extern "C" module AP_MODULE_DECLARE_DATA xtrace_module;
 #endif
+
 
 static int mod_xtrace_cfg_task_id_len = 12;
 static int mod_xtrace_cfg_op_id_len   = 8;

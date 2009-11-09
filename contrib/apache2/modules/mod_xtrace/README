@@ -24,6 +24,8 @@ Compiling:
  - Apache must be told to link against libstdc++. To do this, follow the
    instructions on this page:
      http://zach.chambana.net/apache-cplusplus/cplusplus/stdlib.html
+ - To install the module use the following command:
+     sudo make reload && sudo make restart
 
 Changes:
 

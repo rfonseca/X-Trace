@@ -20,12 +20,17 @@ Add configuration parameters
  - agent for logs
 
 Compiling:
- - run ./autogen.sh to generate a Makefile.
+ - run ./autogen.sh to generate a Makefile and then run make.
  - Apache must be told to link against libstdc++. To do this, follow the
    instructions on this page:
      http://zach.chambana.net/apache-cplusplus/cplusplus/stdlib.html
  - To install the module use the following command:
-     sudo make reload && sudo make restart
+
+     sudo apxs2 -i -n xtrace mod_xtrace.la && sudo make restart
+   
+   When you're running this for the first time, add a '-a' flag to the apxs2
+   command. Also, you may have to restart the server several times (for some
+   unkown reason).
 
 Changes:
 

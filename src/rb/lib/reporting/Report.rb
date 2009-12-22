@@ -6,7 +6,7 @@ module XTrace
     end
     
     def put(key, value, append=true)
-      if @map.include?(key) and append # have this key, and want to append a value
+      if @map.include?(key.to_sym) and append # have this key, and want to append a value
         valueArray = @map[key.to_sym]
       else # this is a new key
         valueArray = Array.new

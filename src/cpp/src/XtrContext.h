@@ -105,19 +105,24 @@ public:
      *  @param agent value of the Agent: key for the created report
      *  @param label value of the Label: key for the created report
      *  @param severity desired severity level for this report. The default value is
-     *          NONE, in which case the severity level of the current context 
-     *          will be used. The severity level is persistent, meaning that it
-     *          will be propagated with the subsequent events derived from this one.
+     *          OptionSeverity::DEFAULT. This event will be logged only if the
+     *          event severity <= reporting context's severityThreshold.
+     *          If the event is not to be logged, the context cannot be advanced,
+     *          as this would create a non-existing node in the graph.
      *  @see Event
      */
     static void logEvent(const char* agent, const char* label,
-                          u_int8_t severity = OptionSeverity::_NONE);
+                          u_int8_t severity = OptionSeverity::DEFAULT);
 
     /** The same as logEvent, but does not send the report, and returns the created
      *  Event object. Use this to add more information to the report.
      *  @param agent value of the Agent: key for the created report
      *  @param label value of the Label: key for the created report
-     *  @param severity desired severity level for this report. 
+     *  @param severity desired severity level for this report. This event will
+     *          be logged only if the event severity <= reporting context's
+     *          severityThreshold AT THE TIME OF CREATION. If the event will not
+     *          be logged, the current context is not altered, and all other
+     *          methods such as addEdge and sendReport will be no-ops.
      *  @return an auto_ptr to an allocated Event object. Remember to call
      *          sendReport() on this object to report it! You don't need to worry
      *          about deleting it unless you will be passing it around to other 
@@ -126,7 +131,7 @@ public:
      */
     static auto_ptr<Event> 
     createEvent( const char* agent, const char* label,
-                 u_int8_t severity = OptionSeverity::_NONE); 
+                 u_int8_t severity = OptionSeverity::DEFAULT); 
     
     /** Sets the host name that is automatically added to the reports generated
      *  by logEvent() and createEvent(). The setting overrides the default, which

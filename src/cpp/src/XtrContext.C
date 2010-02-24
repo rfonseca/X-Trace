@@ -115,20 +115,23 @@ Context::createEvent( const char* agent, const char* label, u_int8_t severity)
     if (!is_host_set) 
         _set_host();
     auto_ptr<Event> xte(new Event());
-    if (getContext().isValid()) {
-        xte->addEdge(getContext());
+    if (! Reporter::willReport(severity) ) {
+	xte->dummy = true;
     } else {
-        Metadata xtr;
-        xtr.setRandomTaskId();
-        if (severity != OptionSeverity::_NONE)
-            xte->setSeverity(severity & 0x7);
-        xte->setTaskId(xtr.getTaskId());
+    	if (getContext().isValid()) {
+    	    xte->addEdge(getContext());
+    	} else {
+    	    Metadata xtr;
+    	    xtr.setRandomTaskId();
+    	    xte->setSeverity(severity & 0x7);
+    	    xte->setTaskId(xtr.getTaskId());
+    	}
+    	if (is_host_set)
+    	    xte->addInfo("Host", host_name);
+    	xte->addInfo("Agent", agent);
+    	xte->addInfo("Label", label);
+    	setContext(xte->getMetadata());
     }
-    if (is_host_set)
-        xte->addInfo("Host", host_name);
-    xte->addInfo("Agent", agent);
-    xte->addInfo("Label", label);
-    setContext(xte->getMetadata());
     return xte;
 } 
 

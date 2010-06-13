@@ -877,11 +877,11 @@ Metadata::newChainId()
 
 /***** Convenience functions for the Severity option ****/
 u_int8_t 
-Metadata::getSeverity() const
+Metadata::getSeverityThreshold() const
 {
     const OptionSeverity* opt_s = 0;
     unsigned int i;
-    u_int8_t s = OptionSeverity::DEFAULT;
+    u_int8_t s = OptionSeverity::_UNSET;
 
     for (i = 0; i < options.getCount() && !opt_s; i++)
         //dynamic_cast returns null if the cast fails
@@ -892,8 +892,12 @@ Metadata::getSeverity() const
 }
 
 xtr_result
-Metadata::setSeverity(u_int8_t s)
+Metadata::setSeverityThreshold(u_int8_t s)
 {
+    //make sure s is valid
+    if (s != s & 0x7)
+        return XTR_FAIL_SEVERITY;
+    
     //look for a Severity option. If not present, create one.
     OptionSeverity* opt_sp = 0;
     unsigned int i;
@@ -910,4 +914,20 @@ Metadata::setSeverity(u_int8_t s)
     return r;
 }
 
+/* Remove *all* severity options if there are multiple */
+xtr_result 
+Metadata::unsetSeverityThreshold()
+{
+    const OptionSeverity* opt_s = 0;
+    unsigned int i;
+
+    for (i = 0; i < options.getCount(); i++) {
+        //dynamic_cast returns null if the cast fails
+        opt_s = dynamic_cast<const OptionSeverity*>(&options[i]);
+        if (opt_s) {
+            options.removeOptionAt(i);
+        }
+    }
+    return XTR_SUCCESS;
+}
 }; //namespace xtr

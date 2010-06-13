@@ -34,19 +34,6 @@
 #ifndef _XTR_CONTEXT_H
 #define _XTR_CONTEXT_H
 
-#undef USE_TLS 
-
-//This doesn't work, as Context is not a POD-type
-#ifdef USE_TLS
- #ifdef MICROSOFT
-  #define TLS __declsped( thread )
- #else
-  #define TLS __thread
- #endif
-#else
- #define TLS
-#endif
-
 #define MAXHOSTNAME 256
 
 using namespace std;
@@ -65,11 +52,8 @@ using namespace std;
  *    - Clear the context using Context.unsetContext()
  *
  *  @author Rodrigo Fonseca
+ *  @author Nick Lanham (multi-thread support)
  *
- *  @warning This is not thread-safe. In a multi-threaded application each thread must have its own
- *           Context. The current implementation uses a class static variable to store the context.
- *  @todo    Use Thread Local Storage (TLS), e.g., __thread or declspec(thread) trickery to get
- *           per thread contexts. The trick is that TLS can only be simple types, not Metadata objects.
  */
  
 namespace xtr {
@@ -93,28 +77,61 @@ public:
     
 
     /** Logs an event to the X-Trace framework.
+     *
      *  This does several things:
      *    - creates a new Event object with a new OpId
      *    - adds an edge from the current context to the new Event
      *    - adds agent and label to the event as information
      *    - sets the current context to the Event.getMetadata()
-     *    - sends a report from the new Event
+     *    - sends a report from the new Event, if the severity level and threshold
+     *      are compatible.
      *
      *  If the current context is not valid, it will create a new context with a random
      *  task id and set it. 
+     *
      *  @param agent value of the Agent: key for the created report
      *  @param label value of the Label: key for the created report
-     *  @param severity desired severity level for this report. The default value is
+     *  @param severity desired severity level for this event. The default value is
      *          OptionSeverity::DEFAULT. This event will be logged only if the
      *          event severity <= reporting context's severityThreshold.
-     *          If the event is not to be logged, the context cannot be advanced,
-     *          as this would create a non-existing node in the graph.
+     *  @return XTR_SUCCESS if the event was successfully sent to the logging layer.
+     *              Semantics: the current X-Trace metadata will be changed to this
+     *                 event's eventId *IFF* this call returns XTR_SUCCESS.
+     *          XTR_FAIL_SEVERITY if the severity level of the event was not sufficient
+     *              to clear the effective severity threshold of the reporter. 
+     *              The effective severity threhsold of the reporter is a combination of
+     *              the severity threshold of the reporter and the severity threshold of
+     *              the current X-Trace metadata.
+     *          XTR_FAIL if the report is not sent for some other reason.
      *  @see Event
      */
-    static void logEvent(const char* agent, const char* label,
+    static xtr_result logEvent(const char* agent, const char* label,
                           u_int8_t severity = OptionSeverity::DEFAULT);
 
-    /** The same as logEvent, but does not send the report, and returns the created
+    /**
+     * The second version of the logEvent call, taking an event object pointer rather than
+     * message strings. This event will be, most likely, the result of a previous call to
+     * prepareEvent().
+     * This call will, atomically, send the event to the reporting infrastructure and
+     * advance the current X-Trace context to the just-logged event. If the report is not
+     * accepted by the X-Trace reporter, the call returns XTR_FAIL and the context *is not*
+     * advanced.
+     * 
+     * @param e A pointer to an event object to be logged. The calling function maintains
+     *          ownership of the pointer.
+     * @param severity (default OptionSeverity::DEFAULT) The severity of the logged event.
+     * @return XTR_SUCCESS if the report is accepted by the reporter. This also means that
+     *                     the Xtr::Context is made to point the just-logged event.
+     *         XTR_FAIL_SEVERITY if the report is not sent because of insufficient severity.
+     *         XTR_FAIL if the report is not sent for some other reason.
+     * @see logEvent(const char*, const char*, u_int8_t)
+     */
+    static xtr_result logEvent(Event* e,
+                          u_int8_t severity = OptionSeverity::DEFAULT);
+
+    /** 
+     * DEPRECATED: use prepareEvent and logEvent(const Event const* e)
+     *The same as logEvent, but does not send the report, and returns the created
      *  Event object. Use this to add more information to the report.
      *  @param agent value of the Agent: key for the created report
      *  @param label value of the Label: key for the created report
@@ -132,6 +149,10 @@ public:
     static auto_ptr<Event> 
     createEvent( const char* agent, const char* label,
                  u_int8_t severity = OptionSeverity::DEFAULT); 
+
+    static auto_ptr<Event>
+    prepareEvent( const char* agent, const char* label, 
+                  u_int8_t severity = OptionSeverity::DEFAULT);
     
     /** Sets the host name that is automatically added to the reports generated
      *  by logEvent() and createEvent(). The setting overrides the default, which
@@ -141,7 +162,7 @@ public:
      */
     static void setHost(const char* name);
     
-    /** Explicitly indicate the start of a new chain of events. This is used for explicitly
+    /** Deprecated. Explicitly indicate the start of a new chain of events. This is used for explicitly
      *  capturing concurrency, and is experimental. */
     static void forkContext ();
 private:

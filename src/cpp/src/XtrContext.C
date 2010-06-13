@@ -102,11 +102,42 @@ Context::forkContext ()
     m->newChainId();
 }
 
-void 
+xtr_result 
 Context::logEvent(const char* agent, const char* label, u_int8_t severity )
 {
-    auto_ptr<Event> xte = createEvent(agent, label, severity);
-    xte->sendReport();
+    auto_ptr<Event> xte = prepareEvent(agent, label, severity);
+    return logEvent(xte.get());
+}
+
+xtr_result
+Context::logEvent(Event* e, u_int8_t severity )
+{
+    xtr_result r = e->sendReport();
+    if (r == XTR_SUCCESS) {
+       setContext(e->getMetadata());
+    }
+    return r;
+}
+
+auto_ptr<Event>
+Context::prepareEvent( const char* agent, const char* label, u_int8_t severity)
+{
+    if (!is_host_set) 
+        _set_host();
+    auto_ptr<Event> xte(new Event());
+    if (getContext().isValid()) {
+        xte->addEdge(getContext());
+    } else {
+        Metadata xtr;
+        xtr.setRandomTaskId();
+        xte->setSeverity(severity & 0x7);
+        xte->setTaskId(xtr.getTaskId());
+    }
+    if (is_host_set)
+        xte->addInfo("Host", host_name);
+    xte->addInfo("Agent", agent);
+    xte->addInfo("Label", label);
+    return xte;
 }
 
 auto_ptr<Event>
@@ -115,23 +146,20 @@ Context::createEvent( const char* agent, const char* label, u_int8_t severity)
     if (!is_host_set) 
         _set_host();
     auto_ptr<Event> xte(new Event());
-    if (! Reporter::willReport(severity) ) {
-	xte->dummy = true;
+    if (getContext().isValid()) {
+        xte->addEdge(getContext());
     } else {
-    	if (getContext().isValid()) {
-    	    xte->addEdge(getContext());
-    	} else {
-    	    Metadata xtr;
-    	    xtr.setRandomTaskId();
-    	    xte->setSeverity(severity & 0x7);
-    	    xte->setTaskId(xtr.getTaskId());
-    	}
-    	if (is_host_set)
-    	    xte->addInfo("Host", host_name);
-    	xte->addInfo("Agent", agent);
-    	xte->addInfo("Label", label);
-    	setContext(xte->getMetadata());
+        Metadata xtr;
+        xtr.setRandomTaskId();
+        xte->setSeverity(severity & 0x7);
+        xte->setTaskId(xtr.getTaskId());
     }
+    if (is_host_set)
+        xte->addInfo("Host", host_name);
+    xte->addInfo("Agent", agent);
+    xte->addInfo("Label", label);
+    setContext(xte->getMetadata()); // <- this is the key difference 
+                                    //    between createEvent and prepareEvent
     return xte;
 } 
 

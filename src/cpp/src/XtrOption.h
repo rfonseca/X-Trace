@@ -205,19 +205,22 @@ class OptionSeverity : public Option
 {
 public:
     /** The Severity levels. These are the same values and names as defined in the
-     *  syslog RFC (RCF 3164)
+     *  syslog RFC (RCF 3164). The values _ALL, _NONE, and _ABSENT are not valid
+     *  to be carried in the X-Trace metadata, and are only defined in this 
+     *  implementation for internal use.
      */
     typedef enum {
-          EMERG = 0,
+          EMERG = 0,    //Most severe. Will be logged unless the threshold is _NONE
           ALERT = 1,
        CRITICAL = 2,
           ERROR = 3,
         WARNING = 4,
          NOTICE = 5,
            INFO = 6,
-          DEBUG = 7,
-           _ALL = 8,
-          _NONE = 255,
+          DEBUG = 7,    //Least severe. Will be logged if threshold is DEBUG or _ALL
+           _ALL = 8,    //Only valid for the severity threshold, logs all
+          _NONE = 255,  //Only valid for the severity threshold, logs none
+         _UNSET = 254,  //Only valid for the severity threshold, means threshold unset
         DEFAULT = NOTICE,
     } Level;
 

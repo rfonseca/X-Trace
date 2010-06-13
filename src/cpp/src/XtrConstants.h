@@ -48,6 +48,8 @@ enum {
 typedef enum {
     XTR_SUCCESS,
     XTR_FAIL,
+    XTR_FAIL_SEVERITY,
+    XTR_FAIL_MALFORMED_EVENT,   
 } xtr_result;
 
 enum {

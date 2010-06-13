@@ -87,12 +87,12 @@ Reporter::stop()
 
 
 xtr_result
-Reporter::sendReport(const char *msg, u_int8_t severity)
+Reporter::sendReport(const char *msg, u_int8_t severity, u_int8_t severityThreshold)
 {
     char buf[XTR_RPT_MAX_MSGSZ];
 
-    if (!willReport(severity))
-        return XTR_FAIL;
+    if (!willReport(severity, severityThreshold))
+        return XTR_FAIL_SEVERITY;
 
     // This check is done by will report
     //if (!initialized)
@@ -133,14 +133,17 @@ Reporter::getSeverityThreshold()
     return severity_thresh;
 }
 
-bool
-Reporter::willReport(u_int8_t s) 
+xtr_result
+Reporter::willReport(u_int8_t severity, u_int8_t severityThreshold) 
 {
+    u_int8_t eff_severity;
     if (!initialized)
-        return false;
-    if (severity_thresh == OptionSeverity::_NONE)
-        return false;
-    return (s <= severity_thresh);
+        return XTR_FAIL;
+    eff_severity = (severityThreshold == OptionSeverity::_UNSET)?
+                    severity_thresh : severityThreshold; 
+    if (eff_severity == OptionSeverity::_NONE || severity > eff_severity)
+        return XTR_FAIL_SEVERITY;
+    return XTR_SUCCESS;
 }
 
 }; //namespace xtr

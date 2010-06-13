@@ -57,13 +57,45 @@ public:
      *  Currently this means a local UDP socket running on port 7831.
      *  @param msg a null-terminated C-style string. It will not be changed
      *             and can be freed/overwritten after the call.
-     *  @param severity the severity of the report. This should be the severity
-     *             associated with the corresponding Metadata. If the severity
-     *             is less than the SeverityThreshold, the 
-     *             message is not logged and is discarded. The default severity is
-     *             is DEFAULT (= NOTICE), if no priority is set.
+     *  @param severity Severity of the event being reported
+     *  @param severityThreshold Severity threshold of the metadata in question.
+     *         Unless this is equal to OptionSeverity::_UNSET, it overrides the
+     *         internal severity_thresh of this reporter.
+     *  @return XTR_SUCCESS if message is sent ok
+     *          XTR_FAIL_SEVERITY if message fails severity check
+     *          XTR_FAIL if reporter not initialized or there is some other
+     *                   error.
      */
-    static xtr_result sendReport(const char *msg, u_int8_t severity=OptionSeverity::DEFAULT);
+    static xtr_result sendReport(const char *msg, 
+                                 u_int8_t severity = OptionSeverity::DEFAULT, 
+                                 u_int8_t severityThreshold = OptionSeverity::_UNSET
+                                );
+
+    /** Returns true if the reporter is initialized and 
+     *  severity <= effective severity threshold.
+     *
+     *  This function will serve as a HINT as to whether the reporter
+     *  would report an event of *severity* for a task with
+     *  severityThreshold. While the comparison is the same as the
+     *  one made during actual reporting, the result may change if the
+     *  internal severity threshold changes in between calls.
+     *
+     *  The effective severity threshold is given by:
+     *  (severityThreshold == OptionSeverity::_UNSET)?severityThreshold:severity_thresh
+     *  where severityThreshold is the argument (likely from the current metadata),
+     *  
+     *  @param severity Severity of the event being reported
+     *  @param severityThreshold Severity threshold of the metadata in question.
+     *         Unless this is equal to OptionSeverity::_UNSET, it overrides the
+     *         internal severity_thresh of this reporter.
+     *  @return XTR_SUCCESS if will report
+     *          XTR_FAIL_SEVERITY if it won't report because of severity
+     *          XTR_FAIL if reporter not initialized
+     */
+    static xtr_result willReport(u_int8_t severity, 
+                                 u_int8_t severityThreshold = OptionSeverity::_UNSET);
+
+
 
     /** Severity settings */
     
@@ -77,11 +109,8 @@ public:
      */
     static xtr_result setSeverityThreshold(u_int8_t severity);
 
-    /** Returns the currently set minimum priority */
+    /** Returns the currently set severity threshold */
     static u_int8_t getSeverityThreshold();
-
-    /** Returns true if the Ctx is initialized and pri >= minPriority */
-    static bool willReport(u_int8_t severity);
 
     /** Not implemented. Sends out XtrReport objects */
     //static xtr_result sendReport(const XtrReport&); 

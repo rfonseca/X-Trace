@@ -984,7 +984,7 @@ public:
         TS_ASSERT_EQUALS(x1.getTaskId().getLength(), 4u);
         TS_ASSERT_EQUALS(x1.getOptions().getCount(), 2u);
         TS_ASSERT_EQUALS(x1.getOptions().getLength(), 7u);
-        TS_ASSERT_EQUALS(x1.getSeverity(), 7);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), 7);
         TS_ASSERT_EQUALS(x1.getChainId(), 0xF8E6);
         len = sizeof(b0);
         x1.pack(b0, &len);
@@ -1230,13 +1230,44 @@ public:
     {
         Metadata x1;
         u_int8_t severity = OptionSeverity::DEBUG;
-        TS_ASSERT_EQUALS(x1.getSeverity(), OptionSeverity::DEFAULT);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::_UNSET);
         //default is notice. This should break if we change the default
-        TS_ASSERT_EQUALS(x1.getSeverity(), OptionSeverity::NOTICE);
-        TS_ASSERT_EQUALS(x1.setSeverity(severity), XTR_SUCCESS);
-        TS_ASSERT_EQUALS(x1.getSeverity(), OptionSeverity::DEBUG);
-        TS_ASSERT_EQUALS(x1.setSeverity(severity), XTR_SUCCESS);
-        TS_ASSERT_EQUALS(x1.getSeverity(), OptionSeverity::DEBUG);
+        TS_ASSERT_EQUALS(x1.setSeverityThreshold(severity), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::DEBUG);
+        TS_ASSERT_EQUALS(x1.setSeverityThreshold(OptionSeverity::WARNING), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::WARNING);
+        TS_ASSERT_EQUALS(x1.unsetSeverityThreshold(), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::_UNSET);
+        TS_ASSERT_EQUALS(x1.setSeverityThreshold(OptionSeverity::NOTICE), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::NOTICE);
+        TS_ASSERT_EQUALS(x1.unsetSeverityThreshold(), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::_UNSET);
+        //the call should be idempotent
+        TS_ASSERT_EQUALS(x1.unsetSeverityThreshold(), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::_UNSET);
+
+        //now we test the case in which multiple severity options are present
+        //this can't be constructed by the regular calls, but might come in 
+        //metadata constructed elsewhere... Remember Postel's robustness principle:
+        //be liberal in what you accept, conservative on what you send (or generate)
+
+        Option *o1, *o2;
+
+        TS_ASSERT_EQUALS(x1.setSeverityThreshold(OptionSeverity::DEBUG), XTR_SUCCESS);
+        //Now add another option just for kicks
+        o1 = new OptionNop(); //nop
+        TS_ASSERT_EQUALS(x1.addOption(*o1), XTR_SUCCESS) ;
+        TS_ASSERT_EQUALS(x1.getOptions().getCount(), 2u);
+        o2 = new OptionSeverity(OptionSeverity::NOTICE);
+        TS_ASSERT_EQUALS(x1.addOption(*o2), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getOptions().getCount(), 3u);
+        //getSeverityThreshold should return the first one
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::DEBUG);
+        TS_ASSERT_EQUALS(x1.unsetSeverityThreshold(), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(x1.getSeverityThreshold(), OptionSeverity::_UNSET);
+        //the previous call should have removed both options, leaving only the
+        //nop options alone.
+        TS_ASSERT_EQUALS(x1.getOptions().getCount(), 1u);
     }
 
     void testXtrEvenCtx() 
@@ -1255,7 +1286,7 @@ public:
         x1.setRandomTaskId();
         x1.setRandomOpId();
         x1.setChainId(0x51);
-        x1.setSeverity(OptionSeverity::DEBUG);
+        x1.setSeverityThreshold(OptionSeverity::DEBUG);
 
         e1.addEdge(x1); //this will set the severity and the chainId of the 
                         // event. Will also set the opId length of
@@ -1279,7 +1310,7 @@ public:
 
         //get metadata
         Metadata x4 = e1.getMetadata();
-        TS_ASSERT(x4.getSeverity() == OptionSeverity::DEBUG);
+        TS_ASSERT(x4.getSeverityThreshold() == OptionSeverity::DEBUG);
         TS_ASSERT(x4.getTaskId().isEqual(x1.getTaskId()));
         TS_ASSERT_EQUALS(x4.getChainId(),x1.getChainId());
         TS_ASSERT_EQUALS(x4.getOpId().getLength(), x1.getOpId().getLength());
@@ -1299,47 +1330,70 @@ public:
 
     void testReportCtxSeverity() 
     {
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::EMERG));
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::EMERG), XTR_FAIL);
         Reporter::init();
         //default severity threshold is DEFAULT (=NOTICE)
-        TS_ASSERT(  !Reporter::willReport(OptionSeverity::DEBUG));
-        TS_ASSERT(  !Reporter::willReport(OptionSeverity::INFO));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::NOTICE));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::WARNING));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::ERROR));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::CRITICAL));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::ALERT));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::EMERG));
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::DEBUG)   , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::INFO)    , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::NOTICE)  , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::WARNING) , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ERROR)   , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::CRITICAL), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ALERT)   , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::EMERG)   , XTR_SUCCESS);
 
+        //now test override from metadata threshold, for, say, ERROR.
+        // we shouldn't report anything below error with the override
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::DEBUG   ,OptionSeverity::ERROR), XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::INFO    ,OptionSeverity::ERROR), XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::NOTICE  ,OptionSeverity::ERROR), XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::WARNING ,OptionSeverity::ERROR), XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ERROR   ,OptionSeverity::ERROR), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::CRITICAL,OptionSeverity::ERROR), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ALERT   ,OptionSeverity::ERROR), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::EMERG   ,OptionSeverity::ERROR), XTR_SUCCESS);
+ 
         Reporter::setSeverityThreshold(OptionSeverity::_ALL);
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::DEBUG));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::INFO));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::NOTICE));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::WARNING));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::ERROR));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::CRITICAL));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::ALERT));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::EMERG));
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::DEBUG)   , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::INFO)    , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::NOTICE)  , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::WARNING) , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ERROR)   , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::CRITICAL), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ALERT)   , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::EMERG)   , XTR_SUCCESS);
 
         Reporter::setSeverityThreshold(OptionSeverity::_NONE);
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::DEBUG));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::INFO));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::NOTICE));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::WARNING));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::ERROR));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::CRITICAL));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::ALERT));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::EMERG));
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::DEBUG)   , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::INFO)    , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::NOTICE)  , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::WARNING) , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::ERROR)   , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::CRITICAL), XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::ALERT)   , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::EMERG)   , XTR_FAIL_SEVERITY);
+
+        //Again test the override. This should be a common case, _NONE
+        //is the reporter threshold, and a metadata comes along with
+        //some other threshold.
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::DEBUG   ,OptionSeverity::INFO), XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::INFO    ,OptionSeverity::INFO), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::NOTICE  ,OptionSeverity::INFO), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::WARNING ,OptionSeverity::INFO), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ERROR   ,OptionSeverity::INFO), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::CRITICAL,OptionSeverity::INFO), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ALERT   ,OptionSeverity::INFO), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::EMERG   ,OptionSeverity::INFO), XTR_SUCCESS);
     
         Reporter::setSeverityThreshold(OptionSeverity::WARNING);
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::DEBUG));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::INFO));
-        TS_ASSERT(! Reporter::willReport(OptionSeverity::NOTICE));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::WARNING));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::ERROR));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::CRITICAL));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::ALERT));
-        TS_ASSERT(  Reporter::willReport(OptionSeverity::EMERG));
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::DEBUG)   , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::INFO)    , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::NOTICE)  , XTR_FAIL_SEVERITY);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::WARNING) , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ERROR)   , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::CRITICAL), XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::ALERT)   , XTR_SUCCESS);
+        TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::EMERG)   , XTR_SUCCESS);
 
     }
 

@@ -421,7 +421,7 @@ public:
     /** Setting of some important options. These are shortcuts to actually
      *  creating and adding the options, but come in handy. */
 
-    /* ChainId */
+    /* ChainId: Deprecated */
     /** Returns the chainId contained in the first chainId option present
       * in the metadata. If no chainId option is present, returns 0. */
     u_int16_t getChainId() const;
@@ -434,11 +434,25 @@ public:
 
     /* Severity Option Convenience Functions */
     /** Returns the severity in the first Severity option present in the
-     *  metadata. If no such option is in, returns the default severity (NOTICE) */
-    u_int8_t getSeverity() const;
-    /** Sets the first severity option present in the Metadata to id. If 
-     *  there is no Severity option present, creates a new option */
-    xtr_result setSeverity(u_int8_t s);
+     *  metadata. If no such option is in, returns OptionSeverity::_UNSET */
+    u_int8_t getSeverityThreshold() const;
+
+    /** Sets the first severity option present in the Metadata to s. If 
+     *  there is no Severity option present, creates a new option 
+     *  @param s severity level. Only valid values are from 
+     *           OptionSeverity::EMERG to OptionSeverity:DEBUG.
+     *  @return XTR_FAIL_SEVERITY if s is invalid
+     *          XTR_FAIL if can't add option
+     *          XTR_SUCCESS otherwise.
+     */
+    xtr_result setSeverityThreshold(u_int8_t s);
+
+    /** Removes all severity options from the metadata. After this call
+     *  a call to getSeverity MUST return OptionSeverity::_UNSET.
+     *  @return XTR_SUCCESS even if no severity option was present 
+                (i.e., the call is idempotent)
+     */
+    xtr_result unsetSeverityThreshold();
 
     /* Serialization related functions */
     /** Returns the size of the metadata in bytes when packed */
@@ -493,6 +507,6 @@ private:
     static void initRandom();
 
 };
-};
+}; //namespace Xtr
 
 #endif // _XTR_METADATA_H

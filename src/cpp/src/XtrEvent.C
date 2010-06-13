@@ -36,7 +36,8 @@
 namespace xtr {
 
 Event::Event()
-    : out_chain_ids(1), chain_id_index(0), timeset(false)
+    : severity(OptionSeverity::DEFAULT),out_chain_ids(1), 
+      chain_id_index(0), timeset(false)
 {
     info.reserve(2048);
     my_xtr.setRandomOpId();
@@ -44,16 +45,18 @@ Event::Event()
 
 Event::Event(const Metadata& xtr)
     : my_xtr(xtr.getTaskId(), xtr.getOpId()), 
+      severity(OptionSeverity::DEFAULT),
       out_chain_ids(1), chain_id_index(0), timeset(false)
 {
     info.reserve(2048);
-    u_int8_t severity;
-    if ((severity = xtr.getSeverity()) != OptionSeverity::DEFAULT)
-        my_xtr.setSeverity(severity);
+    u_int8_t severityT;
+    if ((severityT = xtr.getSeverityThreshold()) != OptionSeverity::_UNSET)
+        my_xtr.setSeverityThreshold(severityT);
 }
 
 Event::Event(const Event& model)
-    : out_chain_ids(1),
+    : severity(model.severity),
+      out_chain_ids(1),
       chain_id_index(0), 
       info(model.info),
       timeset(false)
@@ -80,7 +83,17 @@ Event::setRandomOpId(size_t opIdLen)
 xtr_result
 Event::setSeverity(u_int8_t s)
 {
-    return my_xtr.setSeverity(s);
+    if (s & 0x7 != s) {
+        return XTR_FAIL;
+    }
+    severity = s;
+    return XTR_SUCCESS;
+}
+
+u_int8_t 
+Event::getSeverity()
+{
+    return severity;
 }
 void
 Event::addTimestamp(const char* label) {
@@ -100,7 +113,7 @@ xtr_result
 Event::addEdge(const Metadata& xtr, EventEdge::EdgeDir dir)
 {
     u_int16_t chain_id;
-    u_int8_t severity;
+    u_int8_t severityT;
 
     //sets the taskId or verifies that it is the same
     if (my_xtr.getTaskId().isValid() &&
@@ -122,9 +135,9 @@ Event::addEdge(const Metadata& xtr, EventEdge::EdgeDir dir)
         assert(out_chain_ids.size() == 1);
         out_chain_ids[0] = chain_id;  
         //set the severity, if not default
-        severity = xtr.getSeverity();
-        if (severity != OptionSeverity::DEFAULT) 
-            my_xtr.setSeverity(severity);
+        severityT = xtr.getSeverityThreshold();
+        if (severityT != OptionSeverity::_UNSET) 
+            my_xtr.setSeverityThreshold(severityT);
     } 
     //add an edge to the context
     EventEdge e = EventEdge(xtr.getOpId(), dir, chain_id);
@@ -205,7 +218,7 @@ Event::getReport()
     l += ll;
     //Severity
     u_int8_t severity;
-    if ((severity = my_xtr.getSeverity()) != OptionSeverity::DEFAULT) {
+    if ((severity = my_xtr.getSeverityThreshold()) != OptionSeverity::_UNSET) {
         ll = snprintf(buf + l, sizeof(buf) - l, "\r\nSeverity: %d", severity);
         l += ll;
     }
@@ -237,9 +250,9 @@ Event::getReport()
 xtr_result
 Event::sendReport() 
 {
-    if (Reporter::willReport(my_xtr.getSeverity()))
-        return Reporter::sendReport(getReport().c_str(), my_xtr.getSeverity());
-    return XTR_FAIL;
+    if (Reporter::willReport(severity, my_xtr.getSeverityThreshold()))
+        return Reporter::sendReport(getReport().c_str(), severity, my_xtr.getSeverityThreshold());
+    return XTR_FAIL_SEVERITY;
 }  
 
 };

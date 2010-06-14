@@ -64,13 +64,6 @@ public:
      */
     Event(const Event& model);
 
-    /** Sets this event as a dummy event, one that will not be logged.
-     *  This event only exists so that the code that adds information to
-     *  an event returned by createEvent don't have to check for a null
-     *  pointer every time.
-     */
-    void setDummy();
-
     /** Sets the taskId of the context. If the taskId is already set and
      *  is different from the one being set, an error is returned.
      *  @param taskId taskId to set
@@ -201,7 +194,6 @@ private:
 
     struct timeval timestamp;
     bool timeset;
-    bool dummy;
 };
 
 }; //namespace xtr

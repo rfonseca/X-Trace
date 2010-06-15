@@ -33,6 +33,7 @@
 #define _XTR_OPTION_H
 
 namespace xtr {
+/** Represents an X-Trace metadata option. */
 class Option
 {
 public:
@@ -91,6 +92,9 @@ public:
 };
 
     
+/** A No-op option for X-Trace, serialized to a single '0' byte.
+ *  This option can be used as a space filler or for testing.
+ */
 class OptionNop : public Option
 {
 public:
@@ -168,6 +172,7 @@ protected:
 };
 #endif
 
+/** A ChainId X-Trace metadata option. */
 class OptionChainId : public Option
 {
 public:
@@ -201,11 +206,12 @@ private:
     u_int16_t id;
 };
 
+/** A Severity X-Trace metadata option.*/
 class OptionSeverity : public Option
 {
 public:
     /** The Severity levels. These are the same values and names as defined in the
-     *  syslog RFC (RCF 3164). The values _ALL, _NONE, and _ABSENT are not valid
+     *  syslog RFC (RCF 3164). The values _ALL, _NONE, _ABSENT, and _DEFAULT are not valid
      *  to be carried in the X-Trace metadata, and are only defined in this 
      *  implementation for internal use.
      */
@@ -221,10 +227,10 @@ public:
            _ALL = 8,    //Only valid for the severity threshold, logs all
           _NONE = 255,  //Only valid for the severity threshold, logs none
          _UNSET = 254,  //Only valid for the severity threshold, means threshold unset
-        DEFAULT = NOTICE,
+       _DEFAULT = NOTICE,
     } Level;
 
-    OptionSeverity() : severity(DEFAULT) {};
+    OptionSeverity() : severity(_DEFAULT) {};
     OptionSeverity(const u_int8_t *b, size_t *size);
     OptionSeverity(u_int8_t s) : severity(s & 0x7) {};
 

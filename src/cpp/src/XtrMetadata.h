@@ -156,6 +156,8 @@ char* Id< max_len >::toString(char *dest, size_t size) const
     return dest;
 }
 
+/** Represents the id of an event, which should be unique within a
+ *  single task. */
 class OpId : public Id<XTR_MAX_OP_ID_LEN>
 {
 public:
@@ -186,6 +188,9 @@ public:
 };
 
 
+/** Represents the id of an X-Trace task. A TaskId can have different
+ *  lengths, and currently the supported lengths are 4, 8, 12, and 20 bytes.
+ */
 class TaskId : public Id<XTR_MAX_TASK_ID_LEN>
 {
 public:
@@ -220,8 +225,9 @@ public:
 
 /*********************************************************/
 
-/* Note: the fields are u_int8_t because they can't be larger
- * than this according to the spec.
+/** Represents the list of options in the X-Trace metadata.
+ *  @note: the fields are u_int8_t because they can't be larger
+ *  than this according to the spec.
  */
 class Options {
 public:
@@ -238,15 +244,15 @@ public:
     
     bool isEqual(const Options& other) const;
 
-    /** Reserves the internal storage for c options.
+    /** Reserves the internal storage for n options.
      *  This function is used to avoid repeated allocations when adding
      *  new options.
-     *  @param c number of options to reserve space to. c is the total
+     *  @param n number of options to reserve space to. c is the total
      *           number of options, and not in addition to what's already
      *           stored.
      *  @return XTR_SUCCESS if successful, XTR_FAIL otherwise.
      */
-    xtr_result reserve(u_int8_t c);
+    xtr_result reserve(u_int8_t n);
     void clear();
 
     Option& operator[](size_t i) const {assert(i < count); return *opts[i];};
@@ -276,6 +282,7 @@ private:
 };
 
 
+/** Represents an X-Trace metadata. */
 class Metadata 
 {
 public:
@@ -471,7 +478,7 @@ public:
     xtr_result pack(u_int8_t *to, size_t *len) const;
 
     /** Returns the size of the metadata when represented as a
-     * string, not including the terminating '\0' character.
+     * string, not including the terminating '\\0' character.
      * This is consistent with strlen called on a string
      * representation of the metadata. */
 
@@ -481,7 +488,7 @@ public:
      * @param to preallocated buffer. If the call is successful, the
      * contents of buf will be the string representation of the
      * metadata. Otherwise (if len is insufficient, < sizeAsString() +
-     * 1), buf will have '\0' in its first position.
+     * 1), buf will have '\\0' in its first position.
      * @param len maximum size of the buffer. This must be at least
      * sizeAsString() + 1.
      * @return pointer to 'to'.

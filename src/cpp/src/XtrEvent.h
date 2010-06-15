@@ -13,6 +13,13 @@ using namespace std;
 
 namespace xtr {
 	
+/** Represents an edge in an X-Trace graph, i.e., a causal relationship
+ *  between two events.
+ *  @deprecated With the deprecation of chainIds and edge directions, this
+ *              class has little reason to exist, and will be replaced by
+ *              an OpId object, or by a Metadata object, if we decide to allow
+ *              edges between tasks.
+ */
 class EventEdge 
 {
 public:
@@ -40,6 +47,9 @@ public:
     u_int16_t chainId;
 };
 
+/** Represents an X-Trace Event, with enough information to generate
+ *  an X-Trace report.
+ */
 class Event   
 {
 public:
@@ -48,15 +58,14 @@ public:
      */
     Event();
 
-    /** Creates a new Event from a given Metadata.  This is used to
-     * start a new event with no incoming edges.  The event's taskId and opId
+    /** Creates a new Event from a given Metadata, with no incoming edges.  
+     * The event's taskId and opId
      * will be taken from the metadata. Also, the chainId of the context will be
      * set to the first chain id option present in the metadata, if present.
      */ 
     Event(const Metadata& xtr);
   
-    /** Creates a new Event with 
-     *  a default event as a model. 
+    /** Creates a new Event with a default event as a model, i.e., with pre-filled fields.
      *  The event is initialized as in the default constructor,
      *  except that the extra information (info) is copied. 
      *  This constructor is useful to set things like Agent, Machine, or
@@ -64,7 +73,7 @@ public:
      */
     Event(const Event& model);
 
-    /** Sets the taskId of the context. If the taskId is already set and
+    /** Sets the taskId of the event. If the taskId is already set and
      *  is different from the one being set, an error is returned.
      *  @param taskId taskId to set
      *  @return XTR_SUCCESS if taskId was unset (invalid) or if it was set and
@@ -72,12 +81,13 @@ public:
      */
     xtr_result setTaskId(const TaskId& taskId);
 
-    /** Sets the opId of the current context to a random one.
+    /** Sets the opId of the Event to a random one.
      *  @return XTR_SUCCESS
      */
     xtr_result setRandomOpId(size_t opIdLen = 4);
 
-    /** Sets the severity of the event context. 
+    /** Sets the severity of the Event. The severity will be used
+     *  when reporting.
      *  @param severity severity of this event
      *  @return XTR_SUCCESS if s is valid
      */
@@ -129,7 +139,7 @@ public:
     void addTimestamp(const char* label);
 
 
-    /** Deprecated.
+    /** 
      *  Indicates that the task is forking at this event, i.e., two or more
      *  concurrent events will follow this task. fork() creates a new chainId,
      *  and returns its index. The index starts with 0, and by default the
@@ -138,6 +148,7 @@ public:
      *  fork() will set up state such
      *  that the next metadata retrieved from this EventCtx will be in a different
      *  chainId than the original one. 
+     *  @deprecated
      *  @return the index of the current ChainId after fork is called.<br>
      *  @see getMetadata()
      */
@@ -152,7 +163,7 @@ public:
     const Metadata& getMetadata();
 
     /** Returns an Metadata object to be propagated to the subsequent
-     *  events in this task, indexed by the paramter index. This is the integer
+     *  events in this task, indexed by the parameter index. This is the integer
      *  returned by fork().
      *  @return a reference to the metadata, or a reference to an invalid metadata
      *          if index is invalid.

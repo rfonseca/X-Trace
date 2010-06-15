@@ -36,7 +36,7 @@
 namespace xtr {
 
 Event::Event()
-    : severity(OptionSeverity::DEFAULT),out_chain_ids(1), 
+    : severity(OptionSeverity::_DEFAULT),out_chain_ids(1), 
       chain_id_index(0), timeset(false)
 {
     info.reserve(2048);
@@ -45,7 +45,7 @@ Event::Event()
 
 Event::Event(const Metadata& xtr)
     : my_xtr(xtr.getTaskId(), xtr.getOpId()), 
-      severity(OptionSeverity::DEFAULT),
+      severity(OptionSeverity::_DEFAULT),
       out_chain_ids(1), chain_id_index(0), timeset(false)
 {
     info.reserve(2048);

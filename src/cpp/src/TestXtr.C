@@ -311,7 +311,7 @@ public:
         TS_ASSERT_EQUALS(lo->getSeverity(), 7);
 
         lo = new OptionSeverity();
-        TS_ASSERT_EQUALS(lo->getSeverity(), OptionSeverity::DEFAULT);
+        TS_ASSERT_EQUALS(lo->getSeverity(), OptionSeverity::_DEFAULT);
         delete lo;
 
         s = 10;
@@ -1332,7 +1332,7 @@ public:
     {
         TS_ASSERT_EQUALS( Reporter::willReport(OptionSeverity::EMERG), XTR_FAIL);
         Reporter::init();
-        //default severity threshold is DEFAULT (=NOTICE)
+        //default severity threshold is _DEFAULT (=NOTICE)
         TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::DEBUG)   , XTR_FAIL_SEVERITY);
         TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::INFO)    , XTR_FAIL_SEVERITY);
         TS_ASSERT_EQUALS(  Reporter::willReport(OptionSeverity::NOTICE)  , XTR_SUCCESS);

@@ -354,7 +354,7 @@ OptionChainId::pack(u_int8_t *dest, size_t *size) const
 /***********************************/
 
 OptionSeverity::OptionSeverity(const u_int8_t *b, size_t *size)
-    : severity(DEFAULT)
+    : severity(_DEFAULT)
 {
     const u_int8_t *p = b;
     assert(b);

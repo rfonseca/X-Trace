@@ -46,7 +46,7 @@ void
 Reporter::init() 
 {
     if (initialized) return;
-    severity_thresh = OptionSeverity::DEFAULT;
+    severity_thresh = OptionSeverity::_DEFAULT;
     if ((report_socket = socket(PF_INET, SOCK_DGRAM, 0)) < 0)
     {
         initialized = 0;

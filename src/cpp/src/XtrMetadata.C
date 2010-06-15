@@ -248,19 +248,19 @@ Options::clear()
 }
 
 xtr_result
-Options::reserve(u_int8_t c) {
+Options::reserve(u_int8_t n) {
     Option **o;
-    if (c <= reserved_count)
+    if (n <= reserved_count)
         return XTR_SUCCESS;
     if (reserved_count) {
         o = opts;
-        opts = new Option*[c];
+        opts = new Option*[n];
         memcpy(opts, o, count*sizeof(Option*));
         delete[] o; 
     } else {
-        opts = new Option*[c];
+        opts = new Option*[n];
     }
-    reserved_count = c;
+    reserved_count = n;
     return XTR_SUCCESS;
 }
 

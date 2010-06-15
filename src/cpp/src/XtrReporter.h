@@ -67,7 +67,7 @@ public:
      *                   error.
      */
     static xtr_result sendReport(const char *msg, 
-                                 u_int8_t severity = OptionSeverity::DEFAULT, 
+                                 u_int8_t severity = OptionSeverity::_DEFAULT, 
                                  u_int8_t severityThreshold = OptionSeverity::_UNSET
                                 );
 

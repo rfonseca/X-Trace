@@ -23,7 +23,7 @@ using namespace xtr;
 
 /* Forward declaration. Tell g++ to be nice and mangle compatibly */
 #ifdef __cplusplus
-extern "C" module AP_MODULE_DECLARE_DATA test_module;
+extern "C" module AP_MODULE_DECLARE_DATA xtrace_module;
 #endif
 
 static int mod_xtrace_cfg_task_id_len = 12;
@@ -35,11 +35,10 @@ static int xtrace_output_filter(ap_filter_t *f, apr_bucket_brigade *in)
     request_rec *r = f->r;
 
     Metadata x;
-    bool log = 1;
+    bool log = 0;
 
     char buf[XTR_MD_MAX_LENGTH];
     const char* in_xtrace = apr_table_get(r->notes, "X-Trace");
-    const char* cur_xtrace = apr_table_get(r->headers_out, "X-Trace");
 
     if (in_xtrace) {
         if (log) {
@@ -79,12 +78,16 @@ static int xtrace_add_xtrace(request_rec *r)
     /* See if incoming X-Trace header, or if we should add our own */
     if (!in_xtrace && add_xtrace) {
         x.setRandomTaskId(mod_xtrace_cfg_task_id_len);
-    } else {
+    } else if (in_xtrace) {
        x = Metadata::createFromString(in_xtrace, strlen(in_xtrace)); 
        apr_table_unset(r->headers_in, "X-Trace");
+    } else {
+        return DECLINED;
     }
 
-    if (x.isValid()) {
+    bool valid = x.isValid();
+
+    if (valid) {
         if (log) {
             //report, add the next request to the header and to the note
             Event xte;
@@ -98,26 +101,26 @@ static int xtrace_add_xtrace(request_rec *r)
             x = xte.getMetadata();
 
             xte.sendReport();
+
 #ifdef DEBUG
             fprintf(stderr,xte.getReport().c_str());
 #endif
-
-            x.toString(buf, sizeof(buf));
-            fprintf(stderr,"buf: %s\n", buf);
-            apr_table_set(r->headers_in, "X-Trace", buf);
-            apr_table_set(r->notes, "X-Trace", buf);
-
-        } else {
-            // just add the current metadata to the header and to the notes
-            x.toString(buf, sizeof(buf));
-            apr_table_set(r->headers_in, "X-Trace", buf);
-            apr_table_set(r->notes, "X-Trace", buf);
         }
-    } else 
-        fprintf(stderr,"invalid metadata\n");
+
+        x.toString(buf, sizeof(buf));
+        fprintf(stderr,"buf: %s\n", buf);
+
+        apr_table_set(r->headers_in, "X-Trace", buf);
+        apr_table_set(r->notes, "X-Trace", buf);
+    } else {
+        fprintf(stderr, "invalid metadata\n");
+    }
+
 #ifdef DEBUG
     fflush(stderr);
 #endif
+
+    return OK;
 }
 
 static void xtrace_insert_filters(request_rec *r) {

@@ -28,6 +28,7 @@
 #include "XtrEvent.h"
 #include <time.h>
 #include <cstring>
+#include <cstdio>
 #include <sys/time.h>
 /* TODO:
    2. merge options, add options to the metadata

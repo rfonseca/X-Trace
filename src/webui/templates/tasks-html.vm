@@ -1,15 +1,15 @@
 <html>
-<head><title>X-Trace Viewer - $title<title></head>
+<head><title>X-Trace Viewer - $title</title></head>
 <body>
 <form action="#" method="get" name="searchForm" onSubmit="doSearch(); return false;">
 <p>
 <script language="javascript"><!--
 function doSearch() {
-  document.location.href = 
+  document.location.href =
     "/" + document.searchForm.searchType.value + "/" + document.searchForm.query.value;
 }
 //--></script>
-<a href="/">Return Home</a> | 
+<a href="/">Return Home</a> |
 Search by
 <select name="searchType">
 <option selected value="titleLike">title</option>
@@ -59,7 +59,7 @@ Search by
 <input type="hidden" name="offset" value="$offset" />
 Results per page: <input type="text" name="length" value="$length" size="6" />
 <input type="submit" value="Change" />
-</P> 
+</p>
 </form>
 #if ($showStats)
   <hr />

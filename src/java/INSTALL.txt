@@ -1,48 +1,48 @@
-X-Trace Java Distribution 2.0
+X-Trace Java Distribution 2.1
+=============================
 
-Installation
+X-Trace is a self-contained package; it doesn't need root or admininstrator
+privileges and doesn't require installation into a system directory. If you
+want to make it more easily accessible or make the proxy run as a service, take
+a look at the scripts in bin. The distribution doesn't do this at this point.
 
-X-Trace is a self-contained package, it doesn't need root or admininstrator
-priviledges and doesn't require installing into a system directory. If you want
-to make it more easily accessible, or make the proxy run as a service, take a
-look at the scripts in bin. The distribution doesn't do this at this point.
+From GitHub
+-----------
 
-1. From svn
+If you downloaded X-Trace from GitHub, you can build it from the source using
+Maven. Let <xtrace> be the directory of the repository.
 
-If you downloaded X-Trace from the svn repository, you can build it from the
-source using ant.  Let <xtrace> be the trunk directory of the repository.
+$ cd <xtrace>/src/java
+$ mvn package
 
-> cd <xtrace>/src/java
-> ant
+The JAR will be generated in <xtrace>/java/src/target. Yyou can now run the
+X-Trace backend (check that you have all necessary dependencies, see
+Dependencies below).
 
-The distribution is now in <xtrace>/java/src/build/dist, you can now enter that
-directory and run the X-Trace backend (check that you have all necessary 
-dependencies, see Dependencies below).
+$ cd <xtrace>/src/java
+$ bin/backend.sh
 
-> cd build/dist
-> bin/backend.sh
+You can also build the documentation with:
 
-You can also build the documentation by doing
+$ mvn site
 
-> ant javadoc
+The documentation will be in <xtrace>/src/java/target/site.
 
-The javadoc will be in <xtrace>/java/build/dist/docs/api
+From the release file
+---------------------
 
-2. From the release file
-
-If you obtained a release file, x-trace-2.0-<date>.tar.gz or .zip, extract it in
+If you obtained a release file, x-trace-2.0-<date>.tar.gz or .zip, extract it
 to your directory of choice (which we'll call <xtrace> for our example below).
-Run the backend with the following.
+Run the backend with the following:
 
-> bin/backend.sh
+$ bin/backend.sh
 
-After the backend is running you should be able to visit http://localhost:8080
-with your web browser to see the web portal to the X-Trace backend.
+Once the backend is running, the X-Trace reporting interface can be accessed by
+visiting http://localhost:8080.
 
 Dependencies
+------------
 
-All of the dependencies to run X-Trace are included in the distribution.
-For visualizing the results you will need a recent version of Graphviz.
-You will also need to have Java 1.5, ant, Ruby, and Perl.
-
-
+All of the dependencies to run X-Trace are included in the distribution. For
+visualizing the results you will need a recent version of Graphviz. You will
+also need to have Java 1.5, Maven, Ruby, and Perl.

@@ -78,7 +78,7 @@ public final class XTraceServer {
 	private static final Logger LOG = Logger.getLogger(XTraceServer.class);
 
 	private static ReportSource[] sources;
-
+	
 	private static BlockingQueue<String> incomingReportQueue, reportsToStorageQueue;
 
 	private static ThreadPerTaskExecutor sourcesExecutor;
@@ -86,17 +86,17 @@ public final class XTraceServer {
 	private static ExecutorService storeExecutor;
 
 	private static QueryableReportStore reportstore;
-
+	
 	private static final DateFormat JSON_DATE_FORMAT =
-		new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); 
 	private static final DateFormat HTML_DATE_FORMAT =
-		new SimpleDateFormat("MMM dd yyyy, HH:mm:ss");
-
+		new SimpleDateFormat("MMM dd yyyy, HH:mm:ss"); 
+	
 	// Default number of results to show per page for web UI
 	private static final int PAGE_LENGTH = 25;
-
+	
 	public static void main(String[] args) {
-
+		
 		// If they use the default configuration (the FileTree report store),
 		// then they have to specify the directory in which to store reports
 		if (System.getProperty("xtrace.server.store") == null) {
@@ -106,7 +106,7 @@ public final class XTraceServer {
 			}
 			System.setProperty("xtrace.server.storedirectory", args[0]);
 		}
-
+		
 		setupReportSources();
 		setupReportStore();
 		setupBackplane();
@@ -114,21 +114,22 @@ public final class XTraceServer {
 	}
 
 	private static void setupReportSources() {
-
+		
 		incomingReportQueue = new ArrayBlockingQueue<String>(1024, true);
 		sourcesExecutor = new ThreadPerTaskExecutor();
-
+		
 		// Default input sources
 		String sourcesStr = "edu.berkeley.xtrace.server.UdpReportSource," +
-		                    "edu.berkeley.xtrace.server.TcpReportSource";
-
+		                    "edu.berkeley.xtrace.server.TcpReportSource," +
+		                    "edu.berkeley.xtrace.server.ThriftReportSource";
+		
 		if (System.getProperty("xtrace.server.sources") != null) {
 			sourcesStr = System.getProperty("xtrace.server.sources");
 		} else {
 			LOG.warn("No server report sources specified... using defaults (Udp,Tcp,Thrift)");
 		}
 		String[] sourcesLst = sourcesStr.split(",");
-
+		
 		sources = new ReportSource[sourcesLst.length];
 		for (int i = 0; i < sourcesLst.length; i++) {
 			try {
@@ -155,17 +156,17 @@ public final class XTraceServer {
 			sourcesExecutor.execute((Runnable) sources[i]);
 		}
 	}
-
+	
 	private static void setupReportStore() {
 		reportsToStorageQueue = new ArrayBlockingQueue<String>(1024);
-
+		
 		String storeStr = "edu.berkeley.xtrace.server.FileTreeReportStore";
 		if (System.getProperty("xtrace.server.store") != null) {
 			storeStr = System.getProperty("xtrace.server.store");
 		} else {
 			LOG.warn("No server report store specified... using default (FileTreeReportStore)");
 		}
-
+		
 		reportstore = null;
 		try {
 			reportstore = (QueryableReportStore) Class.forName(storeStr).newInstance();
@@ -179,7 +180,7 @@ public final class XTraceServer {
 			LOG.fatal("Could not find report store class", e1);
 			System.exit(-1);
 		}
-
+		
 		reportstore.setReportQueue(reportsToStorageQueue);
 		try {
 			reportstore.initialize();
@@ -187,16 +188,16 @@ public final class XTraceServer {
 			LOG.fatal("Unable to start report store", e);
 			System.exit(-1);
 		}
-
+		
 		storeExecutor = Executors.newSingleThreadExecutor();
 		storeExecutor.execute(reportstore);
-
+		
 		/* Every N seconds we should sync the report store */
 		String syncIntervalStr = System.getProperty("xtrace.server.syncinterval", "5");
 		long syncInterval = Integer.parseInt(syncIntervalStr);
 		Timer timer= new Timer();
 		timer.schedule(new SyncTimer(reportstore), syncInterval*1000, syncInterval*1000);
-
+		
 		/* Add a shutdown hook to flush and close the report store */
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 		  public void run() {
@@ -204,12 +205,12 @@ public final class XTraceServer {
 		  }
 		});
 	}
-
+	
 	private static void setupBackplane() {
 		new Thread(new Runnable() {
 			public void run() {
 				LOG.info("Backplane waiting for packets");
-
+				
 				while (true) {
 					String msg = null;
 					try {
@@ -223,20 +224,20 @@ public final class XTraceServer {
 			}
 		}).start();
 	}
-
+	
 	private static class ThreadPerTaskExecutor implements Executor {
 	     public void execute(Runnable r) {
 	         new Thread(r).start();
 	     }
 	 }
-
+	
 	private static void setupWebInterface() {
 		String webDir = System.getProperty("xtrace.backend.webui.dir");
 		if (webDir == null) {
 			LOG.warn("No webui directory specified... using default (./src/webui)");
 			webDir = "./src/webui";
 		}
-
+    
     int httpPort =
       Integer.parseInt(System.getProperty("xtrace.backend.httpport", "8080"));
 
@@ -252,12 +253,12 @@ public final class XTraceServer {
 		} catch (Exception e) {
 			LOG.warn("Failed to initialize Velocity", e);
 		}
-
+		
 		// Create Jetty server
     Server server = new Server(httpPort);
     Context context = new Context(server, "/");
-
-    // Create a CGI servlet for scripts in webui/cgi-bin
+    
+    // Create a CGI servlet for scripts in webui/cgi-bin 
     ServletHolder cgiHolder = new ServletHolder(new CGI());
     cgiHolder.setInitParameter("cgibinResourceBase", webDir + "/cgi-bin");
     if (System.getenv("PATH") != null) {
@@ -280,7 +281,7 @@ public final class XTraceServer {
         new TitleServlet()), "/title/*");
     context.addServlet(new ServletHolder(
         new TitleLikeServlet()), "/titleLike/*");
-
+    
     // Add an IndexServlet as the default servlet. This servlet will serve
     // a human-readable (HTML) latest tasks page for "/" and serve static
     // content for any other URL. Being the default servlet, it will get
@@ -288,14 +289,14 @@ public final class XTraceServer {
     // have registered servlets above.
     context.setResourceBase(webDir + "/html");
     context.addServlet(new ServletHolder(new IndexServlet()), "/");
-
+    
     try {
       server.start();
     } catch (Exception e) {
       LOG.warn("Unable to start web interface", e);
     }
 	}
-
+	
 	private static class GetReportsServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
@@ -319,14 +320,14 @@ public final class XTraceServer {
       }
     }
   }
-
+	
 	private static class GetLatestTaskServlet extends HttpServlet {
 	  protected void doGet(HttpServletRequest request, HttpServletResponse response)
 	      throws ServletException, IOException {
       response.setContentType("text/plain");
       response.setStatus(HttpServletResponse.SC_OK);
       Writer out = response.getWriter();
-
+      
       List<TaskRecord> task = reportstore.getLatestTasks(0, 1);
       if (task.size() != 1) {
         LOG.warn("getLatestTasks(1) returned " + task.size() + " entries");
@@ -345,7 +346,7 @@ public final class XTraceServer {
       }
 	  }
 	}
-
+  
   private static class TagServlet extends HttpServlet {
 		protected void doGet(HttpServletRequest request,
 				HttpServletResponse response) throws ServletException, IOException {
@@ -359,7 +360,7 @@ public final class XTraceServer {
 			}
 		}
 	}
-
+  
   private static class TitleServlet extends HttpServlet {
 		protected void doGet(HttpServletRequest request,
 				HttpServletResponse response) throws ServletException, IOException {
@@ -373,7 +374,7 @@ public final class XTraceServer {
 			}
 		}
 	}
-
+	
   private static class TitleLikeServlet extends HttpServlet {
 		protected void doGet(HttpServletRequest request,
 				HttpServletResponse response) throws ServletException, IOException {
@@ -387,7 +388,7 @@ public final class XTraceServer {
 			}
 		}
 	}
-
+  
   private static class IndexServlet extends DefaultServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
@@ -472,7 +473,7 @@ public final class XTraceServer {
 		int offset = getIntParam(request, "offset", 0);
 		return Math.max(offset, 0); // Don't allow negative
 	}
-
+	
 	/**
 	 * Read an integer parameter from a HTTP request, or return a default value
 	 * if the parameter is not specified.
@@ -490,7 +491,7 @@ public final class XTraceServer {
       return defaultValue;
     }
 	}
-
+  
 	private static final class SyncTimer extends TimerTask {
 		private QueryableReportStore reportstore;
 
